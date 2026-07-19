@@ -27,25 +27,34 @@ export default function LoginPage() {
 
   const handleSendOTP = async (e) => {
     e.preventDefault();
+    
     if (!phoneNumber || phoneNumber.length < 10) {
-      showToast('Please enter a valid phone number', 'error');
+      showToast('Please enter a valid 10-digit phone number', 'error');
       return;
     }
     
     setSendingOTP(true);
+    
     // Format to E.164: +63XXXXXXXXXX
     const cleanPhone = phoneNumber.startsWith('0') ? phoneNumber.substring(1) : phoneNumber;
     const formattedPhone = `+63${cleanPhone}`;
 
-    try {
-      await sendOTP(formattedPhone, 'recaptcha-container');
-      showToast('OTP code sent successfully!', 'success');
+    console.log('Sending OTP to:', formattedPhone);
+
+    const result = await sendOTP(formattedPhone);
+    
+    if (result.success) {
+      showToast('OTP code sent successfully! Check your SMS.', 'success');
       setStep('otp');
-    } catch (error) {
-      showToast(error.message || 'Failed to send OTP code. Try again.', 'error');
-    } finally {
-      setSendingOTP(false);
+      // Auto-focus first OTP input
+      setTimeout(() => {
+        if (otpRefs.current[0]) otpRefs.current[0].focus();
+      }, 100);
+    } else {
+      showToast(result.message, 'error');
     }
+    
+    setSendingOTP(false);
   };
 
   const handleOtpChange = (index, value) => {
@@ -59,6 +68,14 @@ export default function LoginPage() {
     if (value !== '' && index < 5) {
       otpRefs.current[index + 1].focus();
     }
+
+    // Auto-submit when all 6 digits entered
+    if (index === 5 && value !== '') {
+      const fullCode = [...newOtp].join('');
+      if (fullCode.length === 6) {
+        handleAutoVerify(fullCode);
+      }
+    }
   };
 
   const handleOtpKeyDown = (index, e) => {
@@ -67,28 +84,59 @@ export default function LoginPage() {
     }
   };
 
+  // Handle paste of full OTP code
+  const handleOtpPaste = (e) => {
+    e.preventDefault();
+    const pasteData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (pasteData.length === 6) {
+      const newOtp = pasteData.split('');
+      setOtpCode(newOtp);
+      otpRefs.current[5].focus();
+      handleAutoVerify(pasteData);
+    }
+  };
+
+  const handleAutoVerify = async (code) => {
+    setVerifyingOTP(true);
+    console.log('Auto-verifying OTP code:', code);
+    
+    const result = await verifyOTP(code);
+    
+    if (result.success) {
+      showToast('Successfully logged in! Welcome! 🎉', 'success');
+      router.push('/');
+    } else {
+      showToast(result.message, 'error');
+      setVerifyingOTP(false);
+    }
+  };
+
   const handleVerifyOTP = async (e) => {
     e.preventDefault();
     const fullOtp = otpCode.join('');
+    
     if (fullOtp.length < 6) {
       showToast('Please enter all 6 digits', 'error');
       return;
     }
 
     setVerifyingOTP(true);
-    try {
-      await verifyOTP(fullOtp);
-      showToast('Successfully logged in!', 'success');
+    console.log('Verifying OTP code:', fullOtp);
+    
+    const result = await verifyOTP(fullOtp);
+    
+    if (result.success) {
+      showToast('Successfully logged in! Welcome! 🎉', 'success');
       router.push('/');
-    } catch (error) {
-      showToast(error.message || 'Invalid verification code. Please check.', 'error');
-    } finally {
-      setVerifyingOTP(false);
+    } else {
+      showToast(result.message, 'error');
     }
+    
+    setVerifyingOTP(false);
   };
 
   if (loading) {
-    return <LoadingSpinner fullPage={true} text="Initializing login..." />;
+    return <LoadingSpinner fullPage={true} text="Initializing..." />;
   }
 
   return (
@@ -118,17 +166,17 @@ export default function LoginPage() {
                   disabled={sendingOTP}
                   required
                   maxLength="10"
+                  autoComplete="tel"
                 />
               </div>
             </div>
 
             <button
-              id="recaptcha-container"
               type="submit"
               className="btn btn-primary btn-block mt-lg"
               disabled={sendingOTP || phoneNumber.length < 10}
             >
-              {sendingOTP ? 'Sending OTP...' : 'Send Verification Code'}
+              {sendingOTP ? 'Sending Code...' : 'Send Verification Code'}
             </button>
           </form>
         ) : (
@@ -144,12 +192,15 @@ export default function LoginPage() {
                   key={idx}
                   ref={(el) => (otpRefs.current[idx] = el)}
                   type="text"
+                  inputMode="numeric"
                   maxLength="1"
                   className="otp-input"
                   value={digit}
                   onChange={(e) => handleOtpChange(idx, e.target.value)}
                   onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                  onPaste={idx === 0 ? handleOtpPaste : undefined}
                   disabled={verifyingOTP}
+                  autoComplete="one-time-code"
                 />
               ))}
             </div>
@@ -177,8 +228,8 @@ export default function LoginPage() {
         )}
       </div>
       
-      {/* Invisible Div Container for Firebase Recaptcha */}
-      <div id="recaptcha-parent"></div>
+      {/* Invisible reCAPTCHA container — must exist in DOM, separate from submit button */}
+      <div id="recaptcha-container"></div>
     </div>
   );
 }

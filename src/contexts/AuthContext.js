@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { 
   signInWithPhoneNumber, 
   RecaptchaVerifier, 
@@ -17,46 +17,34 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [dbUser, setDbUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
   const [confirmationResult, setConfirmationResult] = useState(null);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && auth) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const isTestMode = urlParams.get('test') === 'true';
-
-      if (
-        process.env.NODE_ENV === 'development' || 
-        window.location.hostname === 'localhost' || 
-        window.location.hostname === '127.0.0.1' ||
-        isTestMode
-      ) {
-        auth.settings.appVerificationDisabledForTesting = true;
-        console.log('Firebase App Verification (reCAPTCHA) bypassed for testing');
-      }
-    }
-
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
         // Fetch or create user doc in Firestore
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const docSnap = await getDoc(userRef);
-        
-        if (docSnap.exists()) {
-          setDbUser(docSnap.data());
-        } else {
-          // Initialize user doc
-          const newUserData = {
-            uid: firebaseUser.uid,
-            phone: firebaseUser.phoneNumber,
-            name: firebaseUser.displayName || 'Sweet Tooth Customer',
-            createdAt: new Date().toISOString(),
-            address: '',
-            location: null
-          };
-          await setDoc(userRef, newUserData);
-          setDbUser(newUserData);
+        try {
+          const userRef = doc(db, 'users', firebaseUser.uid);
+          const docSnap = await getDoc(userRef);
+          
+          if (docSnap.exists()) {
+            setDbUser(docSnap.data());
+          } else {
+            // Initialize user doc
+            const newUserData = {
+              uid: firebaseUser.uid,
+              phone: firebaseUser.phoneNumber,
+              name: firebaseUser.displayName || 'Sweet Tooth Customer',
+              createdAt: new Date().toISOString(),
+              address: '',
+              location: null
+            };
+            await setDoc(userRef, newUserData);
+            setDbUser(newUserData);
+          }
+        } catch (err) {
+          console.error('Error syncing user doc:', err);
         }
       } else {
         setUser(null);
@@ -68,49 +56,78 @@ export function AuthProvider({ children }) {
     return () => unsubscribe();
   }, []);
 
-  // Initialize invisible recaptcha verifier
-  const initRecaptcha = (buttonId) => {
-    if (recaptchaVerifier) return recaptchaVerifier;
-    try {
-      const verifier = new RecaptchaVerifier(auth, buttonId, {
-        size: 'invisible',
-        callback: (response) => {
-          // reCAPTCHA solved
-        },
-        'expired-callback': () => {
-          // Response expired. Ask user to solve reCAPTCHA again.
-        }
-      });
-      setRecaptchaVerifier(verifier);
-      return verifier;
-    } catch (error) {
-      console.error('Error initializing RecaptchaVerifier:', error);
-      return null;
+  // Create a fresh RecaptchaVerifier each time we need one
+  const setupRecaptcha = useCallback((containerId) => {
+    // Clear any existing recaptcha widgets in the container
+    const container = document.getElementById(containerId);
+    if (container) {
+      container.innerHTML = '';
     }
-  };
 
-  const sendOTP = async (phoneNumber, buttonId) => {
+    const verifier = new RecaptchaVerifier(auth, containerId, {
+      size: 'invisible',
+      callback: () => {
+        console.log('reCAPTCHA solved');
+      },
+      'expired-callback': () => {
+        console.log('reCAPTCHA expired');
+      }
+    });
+
+    return verifier;
+  }, []);
+
+  const sendOTP = async (phoneNumber) => {
+    let verifier = null;
     try {
-      const verifier = initRecaptcha(buttonId);
-      if (!verifier) throw new Error('reCAPTCHA verifier not initialized');
-      
+      verifier = setupRecaptcha('recaptcha-container');
       const confirmation = await signInWithPhoneNumber(auth, phoneNumber, verifier);
       setConfirmationResult(confirmation);
-      return true;
+      return { success: true };
     } catch (error) {
-      console.error('Error sending OTP:', error);
-      throw error;
+      console.error('sendOTP error:', error);
+      // Clean up failed verifier
+      if (verifier) {
+        try { verifier.clear(); } catch (e) { /* ignore */ }
+      }
+      const container = document.getElementById('recaptcha-container');
+      if (container) container.innerHTML = '';
+
+      // Return a user-friendly error message
+      let message = 'Failed to send verification code.';
+      if (error.code === 'auth/invalid-phone-number') {
+        message = 'Invalid phone number format. Please check and try again.';
+      } else if (error.code === 'auth/too-many-requests') {
+        message = 'Too many attempts. Please try again later.';
+      } else if (error.code === 'auth/captcha-check-failed') {
+        message = 'reCAPTCHA verification failed. Please refresh and try again.';
+      } else if (error.code === 'auth/quota-exceeded') {
+        message = 'SMS quota exceeded. Please try again later.';
+      } else if (error.message) {
+        message = error.message;
+      }
+      return { success: false, message };
     }
   };
 
   const verifyOTP = async (otpCode) => {
-    if (!confirmationResult) throw new Error('No verification code sent yet');
+    if (!confirmationResult) {
+      return { success: false, message: 'No verification in progress. Please send OTP first.' };
+    }
     try {
       const result = await confirmationResult.confirm(otpCode);
-      return result.user;
+      return { success: true, user: result.user };
     } catch (error) {
-      console.error('Error verifying OTP:', error);
-      throw error;
+      console.error('verifyOTP error:', error);
+      let message = 'Verification failed.';
+      if (error.code === 'auth/invalid-verification-code') {
+        message = 'Invalid verification code. Please check and try again.';
+      } else if (error.code === 'auth/code-expired') {
+        message = 'Verification code expired. Please request a new one.';
+      } else if (error.message) {
+        message = error.message;
+      }
+      return { success: false, message };
     }
   };
 
