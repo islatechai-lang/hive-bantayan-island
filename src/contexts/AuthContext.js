@@ -21,6 +21,17 @@ export function AuthProvider({ children }) {
   const [confirmationResult, setConfirmationResult] = useState(null);
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && auth) {
+      if (
+        process.env.NODE_ENV === 'development' || 
+        window.location.hostname === 'localhost' || 
+        window.location.hostname === '127.0.0.1'
+      ) {
+        auth.settings.appVerificationDisabledForTesting = true;
+        console.log('Firebase App Verification (reCAPTCHA) bypassed for testing/localhost');
+      }
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
