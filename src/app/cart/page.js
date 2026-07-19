@@ -11,7 +11,7 @@ import { supabase } from '../../lib/supabase';
 import LiveLocationPreview from '../../components/LiveLocationPreview';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Image from 'next/image';
-import { ShoppingBag, Upload, ChevronLeft, Minus, Plus, Banknote, Smartphone, MessageSquare } from 'lucide-react';
+import { ShoppingBag, Upload, ChevronLeft, Minus, Plus, Banknote, Smartphone, MessageSquare, Clock } from 'lucide-react';
 
 export default function CartPage() {
   const { user, dbUser, liveLocation, startTracking, forceLocationSync } = useAuth();
@@ -178,6 +178,16 @@ export default function CartPage() {
         <h1 className="page-title" style={{ flex: 1, textAlign: 'center', marginRight: '64px' }}>Checkout</h1>
       </div>
 
+      {!isOpen && (
+        <div className="closed-banner">
+          <Clock size={20} className="text-accent" />
+          <div>
+            <div className="closed-banner-text" style={{ fontWeight: 700 }}>We're currently closed</div>
+            <div className="closed-banner-hours">Orders can be placed between 8:00 AM and 12:00 AM.</div>
+          </div>
+        </div>
+      )}
+
       {cart.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon" style={{ background: 'var(--card-bg-accent)', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '6rem', height: '6rem', borderRadius: '50%', marginBottom: '1.5rem' }}>
@@ -333,7 +343,7 @@ export default function CartPage() {
               !isOpen
             }
           >
-            {submittingOrder ? 'Placing Order...' : 'Place Order'}
+            {submittingOrder ? 'Placing Order...' : !isOpen ? 'Store is Closed' : !liveLocation ? 'Waiting for GPS...' : 'Place Order'}
           </button>
         </form>
       )}

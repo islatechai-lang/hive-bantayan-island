@@ -49,7 +49,7 @@ export default function LiveLocationPreview({ location, onRefresh, refreshing })
           <Map
             defaultZoom={16}
             center={pos}
-            gestureHandling="none"
+            gestureHandling="greedy"
             disableDefaultUI={true}
             style={{ width: '100%', height: '100%' }}
             mapId="DEMO_MAP_ID"
