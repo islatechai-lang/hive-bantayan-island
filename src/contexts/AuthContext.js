@@ -22,13 +22,17 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (typeof window !== 'undefined' && auth) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const isTestMode = urlParams.get('test') === 'true';
+
       if (
         process.env.NODE_ENV === 'development' || 
         window.location.hostname === 'localhost' || 
-        window.location.hostname === '127.0.0.1'
+        window.location.hostname === '127.0.0.1' ||
+        isTestMode
       ) {
         auth.settings.appVerificationDisabledForTesting = true;
-        console.log('Firebase App Verification (reCAPTCHA) bypassed for testing/localhost');
+        console.log('Firebase App Verification (reCAPTCHA) bypassed for testing');
       }
     }
 
