@@ -4,12 +4,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   APIProvider, 
   Map, 
-  Marker, 
+  AdvancedMarker, 
   useMap, 
   useMapsLibrary 
 } from '@vis.gl/react-google-maps';
 import { useToast } from '../contexts/ToastContext';
-import { MapPinIcon } from './Icons';
+import { Search, Navigation } from 'lucide-react';
 
 // Bantayan Island Bounding Box
 const BANTAYAN_BOUNDS = {
@@ -70,9 +70,7 @@ function AutocompleteInput({ onPlaceSelect }) {
       <label className="input-label">Search Delivery Location</label>
       <div className="input-with-icon">
         <span className="input-icon" style={{ display: 'flex', alignItems: 'center' }}>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5 text-secondary" strokeWidth={2} style={{ width: '1.25rem', height: '1.25rem' }}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
-          </svg>
+          <Search size={18} className="text-secondary" />
         </span>
         <input
           ref={inputRef}
@@ -199,12 +197,13 @@ export default function LocationPicker({ value, onChange }) {
             gestureHandling={'greedy'}
             disableDefaultUI={true}
             style={{ width: '100%', height: '100%' }}
+            mapId="DEMO_MAP_ID"
             restriction={{
               latLngBounds: BANTAYAN_BOUNDS,
               strictBounds: false,
             }}
           >
-            <Marker
+            <AdvancedMarker
               position={markerPos}
               draggable={true}
               onDragEnd={handleMarkerDragEnd}
@@ -219,7 +218,7 @@ export default function LocationPicker({ value, onChange }) {
             title="Use current GPS location"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            <MapPinIcon className="w-5 h-5 text-accent" />
+            <Navigation size={20} className="text-accent" />
           </button>
         </div>
 

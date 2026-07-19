@@ -5,7 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useToast } from '../../contexts/ToastContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { PhoneIcon } from '../../components/Icons';
+import { Phone, UserCircle } from 'lucide-react';
 import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -216,7 +216,7 @@ export default function LoginPage() {
               <label className="input-label">Phone Number</label>
               <div className="phone-input-group">
                 <span className="phone-prefix" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <PhoneIcon className="w-4 h-4 text-secondary" style={{ width: '1rem', height: '1rem' }} /> +63
+                  <Phone size={16} /> +63
                 </span>
                 <input
                   type="tel"
@@ -292,6 +292,7 @@ export default function LoginPage() {
 
         {step === 'signup-name' && (
           <form onSubmit={handleSaveName}>
+            <UserCircle size={48} strokeWidth={1.5} className="text-accent" />
             <h2>What is your name?</h2>
             <p className="text-secondary text-sm mb-lg text-center">
               Please enter your full name. This will help our riders find and contact you when delivering your order!

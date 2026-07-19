@@ -5,7 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { LogOutIcon, ChevronRightIcon, DeliveryIcon, PhoneIcon } from '../../components/Icons';
+import { LogOut, ChevronRight, Truck, Phone } from 'lucide-react';
 
 export default function ProfilePage() {
   const { user, dbUser, signOut, updateUserName } = useAuth();
@@ -88,7 +88,7 @@ export default function ProfilePage() {
           <label className="input-label">Phone Number</label>
           <div className="phone-input-group" style={{ opacity: 0.8 }}>
             <span className="phone-prefix" style={{ background: '#f5f5f5', borderRight: '1px solid #ddd', padding: '0.8rem 1rem', display: 'flex', alignItems: 'center' }}>
-              <PhoneIcon className="w-4 h-4 text-secondary" style={{ width: '1rem', height: '1rem' }} />
+              <Phone size={16} className="text-secondary" />
             </span>
             <input
               type="text"
@@ -113,29 +113,27 @@ export default function ProfilePage() {
         <h3 className="section-title">My Account</h3>
         
         <div className="profile-section">
-          {/* Order history redirection link */}
           <div className="profile-item" onClick={() => router.push('/orders')} style={{ cursor: 'pointer', borderBottom: '1px solid var(--divider)', paddingBottom: '1rem', marginBottom: '1rem' }}>
             <div className="profile-item-left">
               <span className="profile-item-icon" style={{ background: 'rgba(235, 104, 126, 0.1)', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '2.5rem', height: '2.5rem', borderRadius: '50%' }}>
-                <DeliveryIcon className="w-5 h-5" style={{ width: '1.25rem', height: '1.25rem' }} />
+                <Truck size={20} />
               </span>
               <span className="profile-item-label" style={{ fontWeight: 600 }}>My Orders</span>
             </div>
             <span className="profile-item-arrow" style={{ display: 'flex', alignItems: 'center' }}>
-              <ChevronRightIcon className="w-5 h-5 text-secondary" style={{ width: '1.25rem', height: '1.25rem' }} />
+              <ChevronRight size={18} className="text-secondary" />
             </span>
           </div>
 
-          {/* Logout button */}
           <div className="profile-item" onClick={handleSignOut} style={{ cursor: 'pointer', color: 'var(--error)' }}>
             <div className="profile-item-left">
               <span className="profile-item-icon" style={{ background: 'var(--error-bg)', color: 'var(--error)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '2.5rem', height: '2.5rem', borderRadius: '50%' }}>
-                <LogOutIcon className="w-5 h-5" style={{ width: '1.25rem', height: '1.25rem' }} />
+                <LogOut size={20} />
               </span>
               <span className="profile-item-label" style={{ fontWeight: 600 }}>Log Out</span>
             </div>
             <span className="profile-item-arrow" style={{ display: 'flex', alignItems: 'center' }}>
-              <ChevronRightIcon className="w-5 h-5 text-secondary" style={{ width: '1.25rem', height: '1.25rem', opacity: 0.5 }} />
+              <ChevronRight size={18} className="text-secondary" style={{ opacity: 0.5 }} />
             </span>
           </div>
         </div>

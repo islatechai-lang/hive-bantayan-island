@@ -1756,3 +1756,60 @@ ul, ol {
     padding-right: max(var(--space-base), env(safe-area-inset-right));
   }
 }
+
+/* ============================================
+   GPS Permission Overlay Prompt
+   ============================================ */
+.gps-prompt-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  animation: fade-in 0.3s ease;
+}
+
+.gps-prompt-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-xl);
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-light);
+  animation: scale-up 0.4s var(--transition-spring);
+}
+
+.gps-prompt-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  background: var(--card-bg-accent);
+  color: var(--accent);
+  border-radius: var(--radius-full);
+  margin-bottom: var(--space-lg);
+}
+
+.gps-prompt-card h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: var(--space-sm);
+  letter-spacing: -0.5px;
+}
+
+.gps-prompt-card p {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: var(--space-xl);
+}
+

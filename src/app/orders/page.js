@@ -7,7 +7,7 @@ import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestor
 import { useRouter } from 'next/navigation';
 import StatusBadge from '../../components/StatusBadge';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { ChevronLeftIcon, DeliveryIcon } from '../../components/Icons';
+import { ChevronLeft, Package } from 'lucide-react';
 
 export default function OrdersPage() {
   const { user } = useAuth();
@@ -23,7 +23,6 @@ export default function OrdersPage() {
       return;
     }
 
-    // Query requires composite index userDoc (userId ASC, createdAt DESC)
     const q = query(
       collection(db, 'orders'),
       where('userId', '==', user.uid),
@@ -69,7 +68,7 @@ export default function OrdersPage() {
           className="btn btn-secondary btn-sm"
           style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.5rem 0.8rem', background: '#f5f5f5', border: 'none', borderRadius: '20px' }}
         >
-          <ChevronLeftIcon className="w-4 h-4" /> Profile
+          <ChevronLeft size={16} /> Profile
         </button>
         <h1 className="page-title" style={{ flex: 1, textAlign: 'center', marginRight: '64px' }}>My Orders</h1>
       </div>
@@ -89,7 +88,7 @@ export default function OrdersPage() {
       ) : orders.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon" style={{ background: 'var(--card-bg-accent)', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '6rem', height: '6rem', borderRadius: '50%', marginBottom: '1.5rem' }}>
-            <DeliveryIcon className="w-12 h-12" style={{ width: '3rem', height: '3rem' }} />
+            <Package size={36} />
           </div>
           <h2 className="empty-state-title">No orders yet</h2>
           <p className="empty-state-text">Treat yourself to our sweet tiramisu cakes and creamy shakes!</p>

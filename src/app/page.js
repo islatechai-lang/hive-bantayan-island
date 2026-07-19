@@ -9,15 +9,18 @@ import { products as fallbackProducts } from '../lib/products';
 import ProductCard from '../components/ProductCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Link from 'next/link';
-import { CartIcon, ClockIcon } from '../components/Icons';
+import { ShoppingBag, Clock, MapPin } from 'lucide-react';
 
 export default function MenuPage() {
+  const { user, dbUser, updateUserAddress } = useAuth();
   const { getCartCount, getTotal } = useCart();
   
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState('cake'); // cake | milkshake
   const [isOpen, setIsOpen] = useState(true);
+  const [showGpsPrompt, setShowGpsPrompt] = useState(false);
+  const [requestingGps, setRequestingGps] = useState(false);
 
   // Check if store is open (8AM - 12AM)
   useEffect(() => {
@@ -28,9 +31,16 @@ export default function MenuPage() {
     };
 
     checkStoreStatus();
-    const interval = setInterval(checkStoreStatus, 60000); // Check every minute
+    const interval = setInterval(checkStoreStatus, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // GPS prompt overlay on first use (if user has logged in but has no location/address set)
+  useEffect(() => {
+    if (user && dbUser && !dbUser.location) {
+      setShowGpsPrompt(true);
+    }
+  }, [user, dbUser]);
 
   // Fetch products from Firestore
   useEffect(() => {
@@ -59,18 +69,69 @@ export default function MenuPage() {
     fetchProducts();
   }, []);
 
+  const handleEnableGps = async () => {
+    setRequestingGps(true);
+    try {
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+        });
+      });
+      
+      const location = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      };
+
+      // Set default marker address in profile
+      await updateUserAddress('GPS location set', location);
+      setShowGpsPrompt(false);
+    } catch (err) {
+      console.error('GPS prompt error:', err);
+      // Even if it fails/denies, close prompt so it doesn't block them forever
+      setShowGpsPrompt(false);
+    } finally {
+      setRequestingGps(false);
+    }
+  };
+
   const filteredProducts = products.filter(p => p.category === category);
   const cartCount = getCartCount();
   const cartTotal = getTotal();
 
   return (
     <div className="page">
+      {/* GPS Permission Prompt Overlay */}
+      {showGpsPrompt && (
+        <div className="gps-prompt-overlay">
+          <div className="gps-prompt-card">
+            <div className="gps-prompt-icon">
+              <MapPin size={40} className="text-accent" />
+            </div>
+            <h2>Enable Location Services</h2>
+            <p>We need your GPS coordinates to deliver your cakes and shakes directly to your exact spot on Bantayan Island!</p>
+            <button 
+              className="btn btn-primary btn-block btn-pill"
+              onClick={handleEnableGps}
+              disabled={requestingGps}
+            >
+              {requestingGps ? 'Accessing GPS...' : 'Share My Location'}
+            </button>
+            <button 
+              className="btn btn-ghost btn-block mt-sm"
+              onClick={() => setShowGpsPrompt(false)}
+            >
+              Enter address later
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Closed Warning Banner */}
       {!isOpen && (
         <div className="closed-banner">
-          <span className="closed-banner-icon" style={{ display: 'inline-flex', alignItems: 'center' }}>
-            <ClockIcon className="w-6 h-6 text-accent" />
-          </span>
+          <Clock size={20} className="text-accent" />
           <div>
             <div className="closed-banner-text" style={{ fontWeight: 700 }}>Currently Closed</div>
             <div className="closed-banner-hours">Ordering is active between 8:00 AM and 12:00 AM.</div>
@@ -119,7 +180,7 @@ export default function MenuPage() {
       {cartCount > 0 && (
         <div className="floating-cart">
           <Link href="/cart" className="floating-cart-btn">
-            <CartIcon className="w-5 h-5" style={{ width: '1.25rem', height: '1.25rem' }} />
+            <ShoppingBag size={18} />
             <span>View Order</span>
             <span className="cart-count">{cartCount}</span>
             <span>•</span>
