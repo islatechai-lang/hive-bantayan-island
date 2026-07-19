@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { 
   signInWithPhoneNumber, 
   RecaptchaVerifier, 
@@ -13,11 +13,18 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 const AuthContext = createContext({});
 
+// Throttle interval for Firestore location updates (ms)
+const LOCATION_UPDATE_INTERVAL = 15000;
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [dbUser, setDbUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [confirmationResult, setConfirmationResult] = useState(null);
+  const [liveLocation, setLiveLocation] = useState(null);
+
+  const watchIdRef = useRef(null);
+  const lastFirestoreUpdateRef = useRef(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -29,7 +36,12 @@ export function AuthProvider({ children }) {
           const docSnap = await getDoc(userRef);
           
           if (docSnap.exists()) {
-            setDbUser(docSnap.data());
+            const data = docSnap.data();
+            setDbUser(data);
+            // Restore last known live location
+            if (data.liveLocation) {
+              setLiveLocation(data.liveLocation);
+            }
           } else {
             // Initialize user doc
             const newUserData = {
@@ -38,7 +50,8 @@ export function AuthProvider({ children }) {
               name: firebaseUser.displayName || 'Sweet Tooth Customer',
               createdAt: new Date().toISOString(),
               address: '',
-              location: null
+              location: null,
+              liveLocation: null
             };
             await setDoc(userRef, newUserData);
             setDbUser(newUserData);
@@ -49,12 +62,91 @@ export function AuthProvider({ children }) {
       } else {
         setUser(null);
         setDbUser(null);
+        setLiveLocation(null);
+        stopTracking();
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Start continuous GPS tracking with watchPosition
+  const startTracking = useCallback(() => {
+    if (watchIdRef.current !== null) return; // Already tracking
+    if (!navigator.geolocation) {
+      console.warn('Geolocation not supported by this browser');
+      return;
+    }
+
+    const id = navigator.geolocation.watchPosition(
+      async (position) => {
+        const loc = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          updatedAt: new Date().toISOString(),
+        };
+
+        // Always update local state immediately
+        setLiveLocation(loc);
+
+        // Throttle Firestore writes to every LOCATION_UPDATE_INTERVAL
+        const now = Date.now();
+        if (now - lastFirestoreUpdateRef.current >= LOCATION_UPDATE_INTERVAL) {
+          lastFirestoreUpdateRef.current = now;
+          try {
+            if (auth.currentUser) {
+              const userRef = doc(db, 'users', auth.currentUser.uid);
+              await setDoc(userRef, { liveLocation: loc }, { merge: true });
+            }
+          } catch (err) {
+            console.error('Error syncing live location:', err);
+          }
+        }
+      },
+      (err) => {
+        console.error('GPS watchPosition error:', err);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 10000,
+        timeout: 20000,
+      }
+    );
+
+    watchIdRef.current = id;
+  }, []);
+
+  // Stop GPS tracking
+  const stopTracking = useCallback(() => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+  }, []);
+
+  // Auto-start tracking if user already has location permission
+  useEffect(() => {
+    if (user && dbUser) {
+      // Check if permission was already granted (won't re-prompt)
+      if (navigator.permissions) {
+        navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+          if (result.state === 'granted') {
+            startTracking();
+          }
+        }).catch(() => {
+          // permissions API not supported, try anyway if we have a location
+          if (dbUser.liveLocation || dbUser.location) {
+            startTracking();
+          }
+        });
+      }
+    }
+
+    return () => stopTracking();
+  }, [user, dbUser, startTracking, stopTracking]);
 
   // Create a fresh RecaptchaVerifier each time we need one
   const setupRecaptcha = useCallback((containerId) => {
@@ -160,18 +252,40 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const signOut = () => firebaseSignOut(auth);
+  // Force an immediate location update to Firestore (used before placing an order)
+  const forceLocationSync = useCallback(async () => {
+    if (!auth.currentUser || !liveLocation) return liveLocation;
+
+    try {
+      const freshLoc = { ...liveLocation, updatedAt: new Date().toISOString() };
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      await setDoc(userRef, { liveLocation: freshLoc }, { merge: true });
+      return freshLoc;
+    } catch (err) {
+      console.error('Force location sync error:', err);
+      return liveLocation;
+    }
+  }, [liveLocation]);
+
+  const signOut = async () => {
+    stopTracking();
+    return firebaseSignOut(auth);
+  };
 
   return (
     <AuthContext.Provider value={{
       user,
       dbUser,
       loading,
+      liveLocation,
       sendOTP,
       verifyOTP,
       signOut,
       updateUserName,
-      updateUserAddress
+      updateUserAddress,
+      startTracking,
+      stopTracking,
+      forceLocationSync
     }}>
       {children}
     </AuthContext.Provider>
