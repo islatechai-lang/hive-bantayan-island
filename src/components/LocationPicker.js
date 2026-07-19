@@ -9,6 +9,7 @@ import {
   useMapsLibrary 
 } from '@vis.gl/react-google-maps';
 import { useToast } from '../contexts/ToastContext';
+import { MapPinIcon } from './Icons';
 
 // Bantayan Island Bounding Box
 const BANTAYAN_BOUNDS = {
@@ -68,7 +69,11 @@ function AutocompleteInput({ onPlaceSelect }) {
     <div className="input-group">
       <label className="input-label">Search Delivery Location</label>
       <div className="input-with-icon">
-        <span className="input-icon">🔍</span>
+        <span className="input-icon" style={{ display: 'flex', alignItems: 'center' }}>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5 text-secondary" strokeWidth={2} style={{ width: '1.25rem', height: '1.25rem' }}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
+          </svg>
+        </span>
         <input
           ref={inputRef}
           type="text"
@@ -97,12 +102,15 @@ export default function LocationPicker({ value, onChange }) {
   const [markerPos, setMarkerPos] = useState(value?.location || BANTAYAN_CENTER);
   const [address, setAddress] = useState(value?.address || '');
   const [geocoder, setGeocoder] = useState(null);
+  
+  // Dynamically load the Google Maps Geocoding Library to prevent "Geocoder is not a constructor" race conditions
+  const geocodingLib = useMapsLibrary('geocoding');
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.google) {
-      setGeocoder(new window.google.maps.Geocoder());
+    if (geocodingLib) {
+      setGeocoder(new geocodingLib.Geocoder());
     }
-  }, []);
+  }, [geocodingLib]);
 
   const reverseGeocode = (lat, lng) => {
     if (!geocoder) return;
@@ -209,8 +217,9 @@ export default function LocationPicker({ value, onChange }) {
             className="locate-btn" 
             onClick={useCurrentLocation}
             title="Use current GPS location"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            📍
+            <MapPinIcon className="w-5 h-5 text-accent" />
           </button>
         </div>
 

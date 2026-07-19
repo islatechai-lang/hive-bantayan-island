@@ -7,6 +7,7 @@ import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestor
 import { useRouter } from 'next/navigation';
 import StatusBadge from '../../components/StatusBadge';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { ChevronLeftIcon, DeliveryIcon } from '../../components/Icons';
 
 export default function OrdersPage() {
   const { user } = useAuth();
@@ -14,6 +15,7 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrder, setExpandedOrder] = useState(null);
+  const [indexError, setIndexError] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -21,6 +23,7 @@ export default function OrdersPage() {
       return;
     }
 
+    // Query requires composite index userDoc (userId ASC, createdAt DESC)
     const q = query(
       collection(db, 'orders'),
       where('userId', '==', user.uid),
@@ -34,9 +37,13 @@ export default function OrdersPage() {
       });
       setOrders(ordersData);
       setLoading(false);
+      setIndexError(false);
     }, (error) => {
       console.error('Error fetching orders:', error);
       setLoading(false);
+      if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+        setIndexError(true);
+      }
     });
 
     return () => unsubscribe();
@@ -56,20 +63,36 @@ export default function OrdersPage() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <h1 className="page-title">My Orders</h1>
-        <span style={{ fontSize: '20px' }}>📋</span>
+      <div className="page-header" style={{ alignItems: 'center' }}>
+        <button 
+          onClick={() => router.push('/profile')} 
+          className="btn btn-secondary btn-sm"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.5rem 0.8rem', background: '#f5f5f5', border: 'none', borderRadius: '20px' }}
+        >
+          <ChevronLeftIcon className="w-4 h-4" /> Profile
+        </button>
+        <h1 className="page-title" style={{ flex: 1, textAlign: 'center', marginRight: '64px' }}>My Orders</h1>
       </div>
 
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
           <LoadingSpinner />
         </div>
+      ) : indexError ? (
+        <div className="card text-center" style={{ padding: '2rem 1.5rem', borderColor: 'var(--error)' }}>
+          <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '1rem' }}>⚙️</span>
+          <h3 style={{ color: 'var(--error)', marginBottom: '0.5rem' }}>Database Index Setup Required</h3>
+          <p className="text-secondary text-sm">
+            Firebase requires a composite index to display your orders. Please contact the administrator or click the link in your console log to create it.
+          </p>
+        </div>
       ) : orders.length === 0 ? (
         <div className="empty-state">
-          <span className="empty-state-icon">🛵</span>
+          <div className="empty-state-icon" style={{ background: 'var(--card-bg-accent)', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '6rem', height: '6rem', borderRadius: '50%', marginBottom: '1.5rem' }}>
+            <DeliveryIcon className="w-12 h-12" style={{ width: '3rem', height: '3rem' }} />
+          </div>
           <h2 className="empty-state-title">No orders yet</h2>
-          <p className="empty-state-text">You haven&apos;t placed any orders yet. Treat yourself to a cake now!</p>
+          <p className="empty-state-text">Treat yourself to our sweet tiramisu cakes and creamy shakes!</p>
           <button onClick={() => router.push('/')} className="btn btn-primary btn-pill">
             Order Now
           </button>
@@ -97,7 +120,7 @@ export default function OrdersPage() {
 
                 <div className="order-items-summary">
                   {order.items.map((item, idx) => (
-                    <div key={idx}>
+                    <div key={idx} style={{ padding: '0.25rem 0' }}>
                       {item.quantity}x {item.name}
                     </div>
                   ))}
@@ -121,8 +144,8 @@ export default function OrdersPage() {
                     {order.paymentMethod === 'gcash' && order.gcashReceiptUrl && (
                       <div>
                         <strong>GCash Receipt:</strong>
-                        <a href={order.gcashReceiptUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'block', color: 'var(--accent)', textDecoration: 'underline', marginTop: '4px' }}>
-                          View Uploaded Screenshot
+                        <a href={order.gcashReceiptUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'block', color: 'var(--accent)', textDecoration: 'underline', marginTop: '4px' }} onClick={(e) => e.stopPropagation()}>
+                          View Uploaded Screenshot 📸
                         </a>
                       </div>
                     )}

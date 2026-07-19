@@ -9,9 +9,9 @@ import { products as fallbackProducts } from '../lib/products';
 import ProductCard from '../components/ProductCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Link from 'next/link';
+import { CartIcon, ClockIcon } from '../components/Icons';
 
 export default function MenuPage() {
-  const { user } = useAuth();
   const { getCartCount, getTotal } = useCart();
   
   const [products, setProducts] = useState([]);
@@ -40,7 +40,6 @@ export default function MenuPage() {
         const querySnapshot = await getDocs(q);
         
         if (querySnapshot.empty) {
-          // If Firestore is empty, seed/fallback to the static list
           setProducts(fallbackProducts);
         } else {
           const loadedProducts = [];
@@ -66,54 +65,44 @@ export default function MenuPage() {
 
   return (
     <div className="page">
-      {/* Brand Header */}
-      <div className="page-header">
-        <div>
-          <h1 className="page-title" style={{ fontFamily: 'var(--font-family)', fontWeight: 800, color: 'var(--accent)' }}>
-            🍰 Hive Bantayan
-          </h1>
-          <p className="page-subtitle">Premium Desserts & Milkshakes</p>
-        </div>
-        <div style={{ fontSize: '24px' }}>🌸</div>
-      </div>
-
       {/* Closed Warning Banner */}
       {!isOpen && (
         <div className="closed-banner">
-          <span className="closed-banner-icon">💤</span>
+          <span className="closed-banner-icon" style={{ display: 'inline-flex', alignItems: 'center' }}>
+            <ClockIcon className="w-6 h-6 text-accent" />
+          </span>
           <div>
-            <div className="closed-banner-text">We are currently closed</div>
-            <div className="closed-banner-hours">Ordering is active between 8:00 AM and 12:00 AM only.</div>
+            <div className="closed-banner-text" style={{ fontWeight: 700 }}>Currently Closed</div>
+            <div className="closed-banner-hours">Ordering is active between 8:00 AM and 12:00 AM.</div>
           </div>
         </div>
       )}
 
-      {/* Hero Card */}
-      <div className="card-accent mb-lg text-center" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-        <span style={{ fontSize: '32px' }}>✨</span>
-        <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#9c3447' }}>Free Delivery Across Bantayan Island!</h2>
-        <p className="text-secondary text-xs">
-          Handcrafted tiramisu cakes (₱210) & thick creamy milkshakes (₱39) delivered straight to your door.
+      {/* Hero Header Card */}
+      <div className="card-accent mb-lg text-center" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1.75rem 1.25rem' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent)', margin: 0 }}>Free Delivery Islandwide!</h2>
+        <p className="text-secondary text-sm" style={{ margin: 0, lineHeight: 1.4, maxWidth: '280px' }}>
+          Indulge in artisanal tiramisu slices & premium thick milkshakes delivered straight to your home in Bantayan Island.
         </p>
       </div>
 
-      {/* Categories Tabs */}
+      {/* Categories Switch Tabs */}
       <div className="category-tabs">
         <button 
           onClick={() => setCategory('cake')}
           className={`category-tab ${category === 'cake' ? 'active' : ''}`}
         >
-          🍰 Tiramisu Cakes (₱210)
+          Tiramisu Cakes
         </button>
         <button 
           onClick={() => setCategory('milkshake')}
           className={`category-tab ${category === 'milkshake' ? 'active' : ''}`}
         >
-          🥤 Thick Milkshakes (₱39)
+          Creamy Shakes
         </button>
       </div>
 
-      {/* Product List */}
+      {/* Products Grid list */}
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
           <LoadingSpinner />
@@ -126,11 +115,11 @@ export default function MenuPage() {
         </div>
       )}
 
-      {/* Floating Cart Button */}
+      {/* Floating Bottom Cart Bar */}
       {cartCount > 0 && (
         <div className="floating-cart">
           <Link href="/cart" className="floating-cart-btn">
-            <span className="cart-icon">🛒</span>
+            <CartIcon className="w-5 h-5" style={{ width: '1.25rem', height: '1.25rem' }} />
             <span>View Order</span>
             <span className="cart-count">{cartCount}</span>
             <span>•</span>

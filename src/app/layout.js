@@ -2,7 +2,7 @@ import "./globals.css";
 import { AuthProvider } from "../contexts/AuthContext";
 import { CartProvider } from "../contexts/CartContext";
 import { ToastProvider } from "../contexts/ToastContext";
-import BottomNav from "../components/BottomNav";
+import Header from "../components/Header";
 
 export const metadata = {
   title: "Hive Bantayan — Sweet Tiramisu & Milkshakes",
@@ -30,6 +30,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
@@ -38,8 +39,8 @@ export default function RootLayout({ children }) {
           <AuthProvider>
             <CartProvider>
               <div className="app-container">
+                <Header />
                 {children}
-                <BottomNav />
               </div>
             </CartProvider>
           </AuthProvider>

@@ -11,6 +11,7 @@ import { supabase } from '../../lib/supabase';
 import LocationPicker from '../../components/LocationPicker';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Image from 'next/image';
+import { CartIcon, UploadIcon, ChevronLeftIcon } from '../../components/Icons';
 
 export default function CartPage() {
   const { user, dbUser } = useAuth();
@@ -144,10 +145,7 @@ export default function CartPage() {
       };
 
       // Save order to Firestore
-      const docRef = await addDoc(collection(db, 'orders'), orderData);
-      
-      // Update user's last address/location in database
-      const { updateUserAddress } = await import('../../contexts/AuthContext');
+      await addDoc(collection(db, 'orders'), orderData);
       
       showToast('Order placed successfully!', 'success');
       clearCart();
@@ -166,14 +164,22 @@ export default function CartPage() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <h1 className="page-title">Shopping Cart</h1>
-        <span style={{ fontSize: '20px' }}>🛒</span>
+      <div className="page-header" style={{ alignItems: 'center' }}>
+        <button 
+          onClick={() => router.push('/')} 
+          className="btn btn-secondary btn-sm"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.5rem 0.8rem', background: '#f5f5f5', border: 'none', borderRadius: '20px' }}
+        >
+          <ChevronLeftIcon className="w-4 h-4" /> Menu
+        </button>
+        <h1 className="page-title" style={{ flex: 1, textAlign: 'center', marginRight: '64px' }}>Checkout</h1>
       </div>
 
       {cart.length === 0 ? (
         <div className="empty-state">
-          <span className="empty-state-icon">🧁</span>
+          <div className="empty-state-icon" style={{ background: 'var(--card-bg-accent)', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '6rem', height: '6rem', borderRadius: '50%', marginBottom: '1.5rem' }}>
+            <CartIcon className="w-12 h-12" style={{ width: '3rem', height: '3rem' }} />
+          </div>
           <h2 className="empty-state-title">Your cart is empty</h2>
           <p className="empty-state-text">Browse our menu and satisfy your sweet cravings!</p>
           <button onClick={() => router.push('/')} className="btn btn-primary btn-pill">
@@ -200,7 +206,7 @@ export default function CartPage() {
                   <div className="cart-item-price">₱{item.price}</div>
                   <div className="cart-item-actions">
                     <div className="qty-control">
-                      <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="qty-btn qty-btn-minus">-</button>
+                      <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="qty-btn qty-btn-minus">—</button>
                       <span className="qty-value">{item.quantity}</span>
                       <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="qty-btn qty-btn-plus">+</button>
                     </div>
@@ -265,14 +271,23 @@ export default function CartPage() {
                   className={`payment-option ${paymentMethod === 'cod' ? 'selected' : ''}`}
                   onClick={() => setPaymentMethod('cod')}
                 >
-                  <div className="payment-option-icon">💵</div>
+                  <div className="payment-option-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-6 h-6" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5h.007v.008H3.75V4.5zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3 16.5m-1.5 0a1.5 1.5 0 103 0 1.5 1.5 0 00-3 0zm15 3a1.5 1.5 0 103 0 1.5 1.5 0 00-3 0zm-1.5-12a1.5 1.5 0 103 0 1.5 1.5 0 00-3 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 7.5h.008v.008H12V7.5zM12 16.5h.008v.008H12v-.008z" />
+                    </svg>
+                  </div>
                   <div className="payment-option-name">Cash on Delivery</div>
                 </div>
                 <div 
                   className={`payment-option ${paymentMethod === 'gcash' ? 'selected' : ''}`}
                   onClick={() => setPaymentMethod('gcash')}
                 >
-                  <div className="payment-option-icon">📱</div>
+                  <div className="payment-option-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-6 h-6" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-6 15h9" />
+                    </svg>
+                  </div>
                   <div className="payment-option-name">GCash E-Wallet</div>
                 </div>
               </div>
@@ -297,7 +312,7 @@ export default function CartPage() {
                       onChange={handleReceiptUpload} 
                     />
                     <label htmlFor="receipt-file" className="receipt-upload-area">
-                      <div className="upload-icon">📸</div>
+                      <UploadIcon className="w-8 h-8 text-secondary mb-xs" />
                       {uploadingReceipt ? (
                         <p>Uploading receipt screenshot...</p>
                       ) : (

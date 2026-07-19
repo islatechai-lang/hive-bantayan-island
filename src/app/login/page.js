@@ -5,25 +5,49 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useToast } from '../../contexts/ToastContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { PhoneIcon } from '../../components/Icons';
+import { db } from '../../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function LoginPage() {
-  const { user, sendOTP, verifyOTP, loading } = useAuth();
+  const { user, sendOTP, verifyOTP, updateUserName, loading } = useAuth();
   const { showToast } = useToast();
   const router = useRouter();
   
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
-  const [step, setStep] = useState('phone'); // phone | otp
+  const [step, setStep] = useState('phone'); // phone | otp | signup-name
   const [sendingOTP, setSendingOTP] = useState(false);
   const [verifyingOTP, setVerifyingOTP] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [savingName, setSavingName] = useState(false);
   
   const otpRefs = useRef([]);
 
+  // Redirect only if authenticated AND has a customized name set
   useEffect(() => {
-    if (user) {
-      router.push('/');
+    if (user && step !== 'signup-name') {
+      const checkUserDoc = async () => {
+        try {
+          const docRef = doc(db, 'users', user.uid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data.name && data.name !== 'Sweet Tooth Customer') {
+              router.push('/');
+            } else {
+              setStep('signup-name');
+            }
+          } else {
+            setStep('signup-name');
+          }
+        } catch (e) {
+          router.push('/');
+        }
+      };
+      checkUserDoc();
     }
-  }, [user, router]);
+  }, [user, step, router]);
 
   const handleSendOTP = async (e) => {
     e.preventDefault();
@@ -84,7 +108,6 @@ export default function LoginPage() {
     }
   };
 
-  // Handle paste of full OTP code
   const handleOtpPaste = (e) => {
     e.preventDefault();
     const pasteData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
@@ -103,12 +126,21 @@ export default function LoginPage() {
     const result = await verifyOTP(code);
     
     if (result.success) {
-      showToast('Successfully logged in! Welcome! 🎉', 'success');
-      router.push('/');
+      // Check if user already has a saved name
+      const userRef = doc(db, 'users', result.user.uid);
+      const userSnap = await getDoc(userRef);
+      
+      if (userSnap.exists() && userSnap.data().name && userSnap.data().name !== 'Sweet Tooth Customer') {
+        showToast('Successfully logged in! 🎉', 'success');
+        router.push('/');
+      } else {
+        showToast('Verification successful! Set your name to complete signup.', 'success');
+        setStep('signup-name');
+      }
     } else {
       showToast(result.message, 'error');
-      setVerifyingOTP(false);
     }
+    setVerifyingOTP(false);
   };
 
   const handleVerifyOTP = async (e) => {
@@ -126,13 +158,40 @@ export default function LoginPage() {
     const result = await verifyOTP(fullOtp);
     
     if (result.success) {
-      showToast('Successfully logged in! Welcome! 🎉', 'success');
-      router.push('/');
+      // Check if user already has a saved name
+      const userRef = doc(db, 'users', result.user.uid);
+      const userSnap = await getDoc(userRef);
+      
+      if (userSnap.exists() && userSnap.data().name && userSnap.data().name !== 'Sweet Tooth Customer') {
+        showToast('Successfully logged in! 🎉', 'success');
+        router.push('/');
+      } else {
+        showToast('Verification successful! Set your name to complete signup.', 'success');
+        setStep('signup-name');
+      }
     } else {
       showToast(result.message, 'error');
+      setVerifyingOTP(false);
     }
-    
-    setVerifyingOTP(false);
+  };
+
+  const handleSaveName = async (e) => {
+    e.preventDefault();
+    if (!fullName.trim()) {
+      showToast('Please enter your name', 'error');
+      return;
+    }
+
+    setSavingName(true);
+    try {
+      await updateUserName(fullName.trim());
+      showToast('Profile created successfully! Welcome! 🎉', 'success');
+      router.push('/');
+    } catch (e) {
+      showToast('Failed to save name. Please try again.', 'error');
+    } finally {
+      setSavingName(false);
+    }
   };
 
   if (loading) {
@@ -141,12 +200,12 @@ export default function LoginPage() {
 
   return (
     <div className="auth-page">
-      <div className="auth-logo">🍰</div>
+      <div className="auth-logo" style={{ fontSize: '3rem', margin: '0 auto 1.5rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '5rem', height: '5rem', background: 'var(--card-bg-accent)', borderRadius: '50%' }}>🍰</div>
       <h1 className="auth-brand">Hive Bantayan</h1>
       <p className="auth-tagline">Sweet Tiramisu & Milkshakes Delivered to You</p>
 
       <div className="auth-card">
-        {step === 'phone' ? (
+        {step === 'phone' && (
           <form onSubmit={handleSendOTP}>
             <h2>Customer Login</h2>
             <p className="text-secondary text-sm mb-lg text-center">
@@ -156,7 +215,9 @@ export default function LoginPage() {
             <div className="input-group">
               <label className="input-label">Phone Number</label>
               <div className="phone-input-group">
-                <span className="phone-prefix">+63</span>
+                <span className="phone-prefix" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <PhoneIcon className="w-4 h-4 text-secondary" style={{ width: '1rem', height: '1rem' }} /> +63
+                </span>
                 <input
                   type="tel"
                   className="input"
@@ -173,13 +234,15 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="btn btn-primary btn-block mt-lg"
+              className="btn btn-primary btn-block mt-lg btn-pill"
               disabled={sendingOTP || phoneNumber.length < 10}
             >
               {sendingOTP ? 'Sending Code...' : 'Send Verification Code'}
             </button>
           </form>
-        ) : (
+        )}
+
+        {step === 'otp' && (
           <form onSubmit={handleVerifyOTP}>
             <h2>Enter 6-Digit OTP</h2>
             <p className="text-secondary text-sm mb-lg text-center">
@@ -207,7 +270,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="btn btn-primary btn-block mt-lg"
+              className="btn btn-primary btn-block mt-lg btn-pill"
               disabled={verifyingOTP || otpCode.join('').length < 6}
             >
               {verifyingOTP ? 'Verifying...' : 'Verify & Continue'}
@@ -226,9 +289,40 @@ export default function LoginPage() {
             </button>
           </form>
         )}
+
+        {step === 'signup-name' && (
+          <form onSubmit={handleSaveName}>
+            <h2>What is your name?</h2>
+            <p className="text-secondary text-sm mb-lg text-center">
+              Please enter your full name. This will help our riders find and contact you when delivering your order!
+            </p>
+            
+            <div className="input-group">
+              <label className="input-label">Full Name</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="Enter your name..."
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                disabled={savingName}
+                required
+                autoFocus
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="btn btn-primary btn-block mt-lg btn-pill"
+              disabled={savingName || !fullName.trim()}
+            >
+              {savingName ? 'Completing signup...' : 'Complete Signup'}
+            </button>
+          </form>
+        )}
       </div>
       
-      {/* Invisible reCAPTCHA container — must exist in DOM, separate from submit button */}
+      {/* Invisible reCAPTCHA container */}
       <div id="recaptcha-container"></div>
     </div>
   );
