@@ -99,8 +99,8 @@ export default function MenuPage() {
             <div className="gps-prompt-icon">
               <MapPin size={40} className="text-accent" />
             </div>
-            <h2>Enable Live Location</h2>
-            <p>Share your GPS so our riders can navigate directly to you — just like Grab! No address forms needed.</p>
+            <h2>Enable Location</h2>
+            <p>Allow location access to locate your delivery address automatically.</p>
             <button 
               className="btn btn-primary btn-block btn-pill"
               onClick={handleEnableGps}

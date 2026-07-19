@@ -293,9 +293,9 @@ export default function LoginPage() {
         {step === 'signup-name' && (
           <form onSubmit={handleSaveName}>
             <UserCircle size={48} strokeWidth={1.5} className="text-accent" />
-            <h2>What is your name?</h2>
+            <h2>Enter your name</h2>
             <p className="text-secondary text-sm mb-lg text-center">
-              Please enter your full name. This will help our riders find and contact you when delivering your order!
+              Please enter your name to complete your registration.
             </p>
             
             <div className="input-group">
