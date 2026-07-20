@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { db } from '../lib/firebase';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, writeBatch, doc } from 'firebase/firestore';
 import { products as fallbackProducts } from '../lib/products';
 import ProductCard from '../components/ProductCard';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -42,31 +42,46 @@ export default function MenuPage() {
     }
   }, [user, dbUser, liveLocation]);
 
-  // Fetch products from Firestore
+  // Fetch products from Firestore in real-time with automatic database seeding if empty
   useEffect(() => {
-    async function fetchProducts() {
-      try {
-        const q = query(collection(db, 'products'), orderBy('sortOrder', 'asc'));
-        const querySnapshot = await getDocs(q);
-        
-        if (querySnapshot.empty) {
-          setProducts(fallbackProducts);
-        } else {
-          const loadedProducts = [];
-          querySnapshot.forEach((doc) => {
-            loadedProducts.push({ id: doc.id, ...doc.data() });
+    const q = query(collection(db, 'products'), orderBy('sortOrder', 'asc'));
+    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+      if (querySnapshot.empty) {
+        // Seed the products database with default items
+        try {
+          const batch = writeBatch(db);
+          fallbackProducts.forEach((p) => {
+            const docRef = doc(db, 'products', p.id);
+            batch.set(docRef, {
+              name: p.name,
+              description: p.description,
+              price: p.price,
+              category: p.category,
+              image: p.image,
+              available: p.available !== undefined ? p.available : true,
+              stock: p.stock !== undefined ? p.stock : 20, // default stock count
+              sortOrder: p.sortOrder
+            }, { merge: true });
           });
-          setProducts(loadedProducts);
+          await batch.commit();
+        } catch (seedErr) {
+          console.error('Auto-seeding error:', seedErr);
         }
-      } catch (error) {
-        console.error('Error fetching products, using fallback:', error);
-        setProducts(fallbackProducts);
-      } finally {
-        setLoading(false);
+      } else {
+        const loadedProducts = [];
+        querySnapshot.forEach((doc) => {
+          loadedProducts.push({ id: doc.id, ...doc.data() });
+        });
+        setProducts(loadedProducts);
       }
-    }
+      setLoading(false);
+    }, (error) => {
+      console.error('Error listening to products:', error);
+      setProducts(fallbackProducts);
+      setLoading(false);
+    });
 
-    fetchProducts();
+    return () => unsubscribe();
   }, []);
 
   const handleEnableGps = async () => {

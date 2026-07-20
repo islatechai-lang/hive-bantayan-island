@@ -6,7 +6,7 @@ import { useCart } from '../../contexts/CartContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useRouter } from 'next/navigation';
 import { db } from '../../lib/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, writeBatch, doc, increment } from 'firebase/firestore';
 import { supabase } from '../../lib/supabase';
 import LiveLocationPreview from '../../components/LiveLocationPreview';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -153,6 +153,20 @@ export default function CartPage() {
 
       // Write directly to Firestore (client-side — always works)
       const docRef = await addDoc(collection(db, 'orders'), orderData);
+
+      // Decrement product stock count atomatically in Firestore
+      try {
+        const batch = writeBatch(db);
+        cart.forEach((item) => {
+          const productRef = doc(db, 'products', item.id);
+          batch.update(productRef, {
+            stock: increment(-item.quantity)
+          });
+        });
+        await batch.commit();
+      } catch (stockErr) {
+        console.error('Failed to update product stock counts:', stockErr);
+      }
 
       // For GCash, kick off AI receipt verification in the background (fire-and-forget)
       if (paymentMethod === 'gcash' && receiptUrl) {

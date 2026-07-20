@@ -75,26 +75,24 @@ export default function AdminPage() {
     return () => unsubscribe();
   }, [isAuthenticated]);
 
-  // Fetch products
+  // Fetch products in real time
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    async function fetchProducts() {
-      try {
-        const querySnapshot = await getDocs(query(collection(db, 'products'), orderBy('sortOrder', 'asc')));
-        const productsData = [];
-        querySnapshot.forEach((doc) => {
-          productsData.push({ id: doc.id, ...doc.data() });
-        });
-        setProducts(productsData);
-      } catch (error) {
-        console.error('Error loading products:', error);
-      } finally {
-        setProductsLoading(false);
-      }
-    }
+    const q = query(collection(db, 'products'), orderBy('sortOrder', 'asc'));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const productsData = [];
+      querySnapshot.forEach((doc) => {
+        productsData.push({ id: doc.id, ...doc.data() });
+      });
+      setProducts(productsData);
+      setProductsLoading(false);
+    }, (error) => {
+      console.error('Error listening to products in admin:', error);
+      setProductsLoading(false);
+    });
 
-    fetchProducts();
+    return () => unsubscribe();
   }, [isAuthenticated]);
 
   const handleLogin = (e) => {
