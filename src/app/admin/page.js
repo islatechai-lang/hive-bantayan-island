@@ -136,7 +136,6 @@ export default function AdminPage() {
       
       // Update local state
       setProducts(prev => prev.map(p => p.id === productId ? { ...p, available: !currentAvailability } : p));
-      showToast('Product availability updated!', 'success');
     } catch (e) {
       showToast('Failed to update product availability', 'error');
     }
@@ -150,7 +149,6 @@ export default function AdminPage() {
       
       // Update local state
       setProducts(prev => prev.map(p => p.id === productId ? { ...p, stock: stockVal } : p));
-      showToast('Stock quantity updated!', 'success');
     } catch (e) {
       showToast('Failed to update stock count', 'error');
     }

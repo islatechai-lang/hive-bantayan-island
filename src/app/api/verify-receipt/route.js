@@ -42,15 +42,27 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 });
     }
 
-    // Fetch image and convert to base64
-    const imageRes = await fetch(gcashReceiptUrl);
-    if (!imageRes.ok) {
-      return NextResponse.json({ error: 'Could not fetch receipt image' }, { status: 400 });
-    }
+    let base64Image = '';
+    let mimeType = 'image/jpeg';
 
-    const arrayBuffer = await imageRes.arrayBuffer();
-    const base64Image = Buffer.from(arrayBuffer).toString('base64');
-    const mimeType = imageRes.headers.get('content-type') || 'image/png';
+    if (gcashReceiptUrl.startsWith('data:')) {
+      const match = gcashReceiptUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        mimeType = match[1];
+        base64Image = match[2];
+      } else {
+        return NextResponse.json({ error: 'Invalid data URL format for receipt' }, { status: 400 });
+      }
+    } else {
+      // Fallback: Fetch remote image and convert to base64
+      const imageRes = await fetch(gcashReceiptUrl);
+      if (!imageRes.ok) {
+        return NextResponse.json({ error: 'Could not fetch receipt image' }, { status: 400 });
+      }
+      const arrayBuffer = await imageRes.arrayBuffer();
+      base64Image = Buffer.from(arrayBuffer).toString('base64');
+      mimeType = imageRes.headers.get('content-type') || 'image/png';
+    }
 
     const todayStr = new Date().toLocaleDateString('en-US', {
       month: 'long', day: 'numeric', year: 'numeric'
@@ -71,7 +83,7 @@ Check:
 Return JSON only:
 {"valid": true/false, "reason": "short explanation"}`;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     const geminiRes = await fetch(geminiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -32,10 +32,9 @@ export default function CartPage() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!user) {
-      showToast('Please sign in to view your cart and checkout', 'info');
       router.push('/login');
     }
-  }, [user, router, showToast]);
+  }, [user, router]);
 
   // Verify store status
   useEffect(() => {
