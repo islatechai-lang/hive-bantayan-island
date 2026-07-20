@@ -120,6 +120,9 @@ export default function CartPage() {
       // Force-sync the latest GPS coordinates to Firestore before placing order
       const freshLocation = await forceLocationSync();
 
+      // COD = auto-confirmed (preparing), GCash = pending until AI verifies
+      const initialStatus = paymentMethod === 'cod' ? 'preparing' : 'pending';
+
       const orderData = {
         userId: user.uid,
         userName: dbUser?.name || 'Customer',
@@ -141,24 +144,28 @@ export default function CartPage() {
         deliveryFee: 0,
         total: getTotal(),
         paymentMethod,
-        gcashReceiptUrl: paymentMethod === 'gcash' ? receiptUrl : null
+        gcashReceiptUrl: paymentMethod === 'gcash' ? receiptUrl : null,
+        status: initialStatus,
+        aiVerification: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
 
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData)
-      });
+      // Write directly to Firestore (client-side — always works)
+      const docRef = await addDoc(collection(db, 'orders'), orderData);
 
-      if (!res.ok) {
-        throw new Error('Failed to create order via API');
+      // For GCash, kick off AI receipt verification in the background (fire-and-forget)
+      if (paymentMethod === 'gcash' && receiptUrl) {
+        fetch('/api/verify-receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId: docRef.id, gcashReceiptUrl: receiptUrl, total: getTotal() })
+        }).catch(err => console.warn('AI verification request failed (non-blocking):', err));
       }
-
-      const result = await res.json();
       
       showToast('Order placed! Your rider will navigate to your GPS pin.', 'success');
       clearCart();
-      router.push(`/order-success/${result.orderId}`);
+      router.push(`/order-success/${docRef.id}`);
     } catch (error) {
       console.error('Error placing order:', error);
       showToast('Failed to place order. Please try again.', 'error');

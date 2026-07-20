@@ -1,6 +1,33 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase-admin';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 import { sendPushNotification } from '@/lib/onesignal';
+
+function getAdminDb() {
+  const key = process.env.FIREBASE_PRIVATE_KEY;
+  if (!key) return null;
+
+  let cleaned = key.trim();
+  if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+    cleaned = cleaned.substring(1, cleaned.length - 1);
+  }
+  if (cleaned.startsWith("'") && cleaned.endsWith("'")) {
+    cleaned = cleaned.substring(1, cleaned.length - 1);
+  }
+  cleaned = cleaned.replace(/\\n/g, '\n');
+
+  const app = !getApps().length
+    ? initializeApp({
+        credential: cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: cleaned,
+        }),
+      })
+    : getApps()[0];
+
+  return getFirestore(app);
+}
 
 export async function PATCH(request, { params }) {
   try {
@@ -10,6 +37,11 @@ export async function PATCH(request, { params }) {
 
     if (!status) {
       return NextResponse.json({ error: 'Status is required' }, { status: 400 });
+    }
+
+    const adminDb = getAdminDb();
+    if (!adminDb) {
+      return NextResponse.json({ error: 'Firebase Admin not configured' }, { status: 500 });
     }
 
     const orderRef = adminDb.collection('orders').doc(id);
