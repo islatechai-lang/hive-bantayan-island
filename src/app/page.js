@@ -100,6 +100,14 @@ export default function MenuPage() {
     }
   };
 
+  // While auth is resolving, show full-screen spinner so there's zero content flash
+  if (authLoading) {
+    return <LoadingSpinner fullPage={true} text="Loading..." />;
+  }
+
+  // While waiting for redirect to fire (not logged in), show nothing
+  if (!user) return null;
+
   const filteredProducts = products.filter(p => p.category === category);
   const cartCount = getCartCount();
   const cartTotal = getTotal();

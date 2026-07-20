@@ -63,22 +63,27 @@ export default function LoginPage() {
     const cleanPhone = phoneNumber.startsWith('0') ? phoneNumber.substring(1) : phoneNumber;
     const formattedPhone = `+63${cleanPhone}`;
 
-    console.log('Sending OTP to:', formattedPhone);
-
-    const result = await sendOTP(formattedPhone);
-    
-    if (result.success) {
-      showToast('OTP code sent successfully! Check your SMS.', 'success');
-      setStep('otp');
-      // Auto-focus first OTP input
-      setTimeout(() => {
-        if (otpRefs.current[0]) otpRefs.current[0].focus();
-      }, 100);
-    } else {
-      showToast(result.message, 'error');
+    try {
+      // Race against a 30-second timeout so the button never gets permanently stuck
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timed out. Please try again.')), 30000)
+      );
+      const result = await Promise.race([sendOTP(formattedPhone), timeoutPromise]);
+      
+      if (result.success) {
+        showToast('OTP code sent successfully! Check your SMS.', 'success');
+        setStep('otp');
+        setTimeout(() => {
+          if (otpRefs.current[0]) otpRefs.current[0].focus();
+        }, 100);
+      } else {
+        showToast(result.message || 'Failed to send OTP. Please try again.', 'error');
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to send OTP. Please try again.', 'error');
+    } finally {
+      setSendingOTP(false);
     }
-    
-    setSendingOTP(false);
   };
 
   const handleOtpChange = (index, value) => {
