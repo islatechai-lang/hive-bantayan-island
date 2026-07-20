@@ -22,6 +22,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [confirmationResult, setConfirmationResult] = useState(null);
   const [liveLocation, setLiveLocation] = useState(null);
+  const [locationDenied, setLocationDenied] = useState(false);
 
   const watchIdRef = useRef(null);
   const lastFirestoreUpdateRef = useRef(0);
@@ -109,6 +110,7 @@ export function AuthProvider({ children }) {
 
           // Always update local state immediately
           setLiveLocation(loc);
+          setLocationDenied(false); // we got location, definitely not denied
 
           // Throttle Firestore writes to every LOCATION_UPDATE_INTERVAL
           const now = Date.now();
@@ -126,6 +128,9 @@ export function AuthProvider({ children }) {
         },
         (err) => {
           console.error('GPS watchPosition error:', err);
+          if (err.code === 1) { // PERMISSION_DENIED
+            setLocationDenied(true);
+          }
         },
         {
           enableHighAccuracy: true,
@@ -196,9 +201,26 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // Auto-start tracking immediately when the app loads
+  // Auto-start tracking immediately when the app loads and monitor permission changes
   useEffect(() => {
     startTracking();
+
+    if (typeof window !== 'undefined' && navigator.permissions) {
+      navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+        if (result.state === 'denied') {
+          setLocationDenied(true);
+        }
+        result.onchange = () => {
+          if (result.state === 'denied') {
+            setLocationDenied(true);
+          } else if (result.state === 'granted') {
+            setLocationDenied(false);
+            startTracking();
+          }
+        };
+      }).catch((err) => console.log('Permissions query not supported in this environment:', err));
+    }
+
     return () => stopTracking();
   }, [startTracking, stopTracking]);
 
@@ -332,6 +354,7 @@ export function AuthProvider({ children }) {
       dbUser,
       loading,
       liveLocation,
+      locationDenied,
       sendOTP,
       verifyOTP,
       signOut,

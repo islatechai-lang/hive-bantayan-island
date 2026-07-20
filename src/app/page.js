@@ -9,18 +9,26 @@ import { products as fallbackProducts } from '../lib/products';
 import ProductCard from '../components/ProductCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ShoppingBag, Clock, MapPin } from 'lucide-react';
 
 export default function MenuPage() {
-  const { user, dbUser, liveLocation, startTracking } = useAuth();
+  const { user, loading: authLoading, locationDenied, liveLocation, startTracking } = useAuth();
   const { getCartCount, getTotal } = useCart();
+  const router = useRouter();
   
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState('cake');
   const [isOpen, setIsOpen] = useState(true);
-  const [showGpsPrompt, setShowGpsPrompt] = useState(false);
   const [requestingGps, setRequestingGps] = useState(false);
+
+  // Require login immediately on startup
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/login');
+    }
+  }, [user, authLoading, router]);
 
   // Check if store is open (8AM - 12AM)
   useEffect(() => {
@@ -34,13 +42,6 @@ export default function MenuPage() {
     const interval = setInterval(checkStoreStatus, 60000);
     return () => clearInterval(interval);
   }, []);
-
-  // GPS prompt overlay on first use
-  useEffect(() => {
-    if (user && dbUser && !dbUser.liveLocation && !liveLocation) {
-      setShowGpsPrompt(true);
-    }
-  }, [user, dbUser, liveLocation]);
 
   // Fetch products from Firestore in real-time with automatic database seeding if empty
   useEffect(() => {
@@ -92,10 +93,8 @@ export default function MenuPage() {
       startTracking();
       // Give it a moment to get initial fix
       await new Promise((r) => setTimeout(r, 2500));
-      setShowGpsPrompt(false);
     } catch (err) {
       console.error('GPS prompt error:', err);
-      setShowGpsPrompt(false);
     } finally {
       setRequestingGps(false);
     }
@@ -107,24 +106,24 @@ export default function MenuPage() {
 
   return (
     <div className="page">
-      {/* GPS Blocker Overlay — Required to proceed */}
-      {!liveLocation && (
+      {/* GPS Blocker Overlay — Required only when explicitly denied */}
+      {locationDenied && (
         <div className="gps-prompt-overlay" style={{ zIndex: 9999 }}>
           <div className="gps-prompt-card">
             <div className="gps-prompt-icon">
               <MapPin size={40} className="text-accent" />
             </div>
-            <h2>Location Required</h2>
-            <p>We need your live GPS location to deliver your order accurately. Please enable location services to proceed.</p>
+            <h2>Location Permission Denied</h2>
+            <p>You have denied location access. We need your live GPS location to deliver your order accurately. Please enable location permissions in your app settings to proceed.</p>
             <button 
               className="btn btn-primary btn-block btn-pill"
               onClick={handleEnableGps}
               disabled={requestingGps}
             >
-              {requestingGps ? 'Acquiring GPS Signal...' : 'Enable Location / Retry'}
+              {requestingGps ? 'Retrying GPS Access...' : 'Retry / Enable Location'}
             </button>
             <p className="text-center text-xs text-secondary mt-md" style={{ margin: 0 }}>
-              Allow device GPS access when prompted to unlock the shop menu.
+              Go to your Android Device Settings {"\u2192"} Apps {"\u2192"} Hive {"\u2192"} Permissions {"\u2192"} Location {"\u2192"} set to "Allow only while using the app".
             </p>
           </div>
         </div>
