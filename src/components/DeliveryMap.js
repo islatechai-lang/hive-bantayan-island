@@ -4,9 +4,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { APIProvider, Map, AdvancedMarker, useMap } from '@vis.gl/react-google-maps';
 import { db } from '../lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { Navigation, MapPin, Phone } from 'lucide-react';
+import { Navigation, MapPin, Phone, RefreshCw, Maximize2 } from 'lucide-react';
 
-// Custom pin element for the buyer
+// Custom pin element for the buyer (red pin)
 function BuyerPin() {
   return (
     <div style={{
@@ -36,26 +36,6 @@ function RiderPin() {
   );
 }
 
-// Auto-fit map bounds to show both pins
-function MapBoundsController({ buyerPos, riderPos }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!map) return;
-    if (buyerPos && riderPos) {
-      const bounds = new google.maps.LatLngBounds();
-      bounds.extend(buyerPos);
-      bounds.extend(riderPos);
-      map.fitBounds(bounds, { padding: 60 });
-    } else if (buyerPos) {
-      map.panTo(buyerPos);
-      map.setZoom(15);
-    }
-  }, [map, buyerPos, riderPos]);
-
-  return null;
-}
-
 // Haversine distance formula (km)
 function getDistanceKm(pos1, pos2) {
   const R = 6371;
@@ -74,11 +54,55 @@ export default function DeliveryMap({ location, buyerUserId, buyerName, buyerPho
   const [buyerLivePos, setBuyerLivePos] = useState(null);
   const [riderPos, setRiderPos] = useState(null);
   const watchIdRef = useRef(null);
+  const mapRef = useRef(null);
 
   // Fallback static location from the order
   const fallbackPos = location
     ? { lat: parseFloat(location.lat || location._lat), lng: parseFloat(location.lng || location._long) }
     : null;
+
+  // Effective buyer position: prefer live, fallback to order snapshot
+  const effectiveBuyerPos = buyerLivePos || fallbackPos;
+
+  // Track if map has been initialized/centered on buyer once
+  const hasCenteredRef = useRef(false);
+
+  // Set the map instance reference
+  const handleMapLoad = useCallback((mapInstance) => {
+    mapRef.current = mapInstance;
+    if (effectiveBuyerPos && !hasCenteredRef.current) {
+      mapInstance.panTo(effectiveBuyerPos);
+      mapInstance.setZoom(16);
+      hasCenteredRef.current = true;
+    }
+  }, [effectiveBuyerPos]);
+
+  // Center on buyer manually
+  const recenterOnBuyer = useCallback(() => {
+    if (mapRef.current && effectiveBuyerPos) {
+      mapRef.current.panTo(effectiveBuyerPos);
+      mapRef.current.setZoom(17); // zoom in close to show roads clearly
+    }
+  }, [effectiveBuyerPos]);
+
+  // Fit bounds to show both pins
+  const fitBothPins = useCallback(() => {
+    if (mapRef.current && effectiveBuyerPos && riderPos) {
+      const bounds = new google.maps.LatLngBounds();
+      bounds.extend(effectiveBuyerPos);
+      bounds.extend(riderPos);
+      mapRef.current.fitBounds(bounds, { padding: 60 });
+    }
+  }, [effectiveBuyerPos, riderPos]);
+
+  // Trigger initial centering when position becomes available
+  useEffect(() => {
+    if (mapRef.current && effectiveBuyerPos && !hasCenteredRef.current) {
+      mapRef.current.panTo(effectiveBuyerPos);
+      mapRef.current.setZoom(16);
+      hasCenteredRef.current = true;
+    }
+  }, [effectiveBuyerPos]);
 
   // Subscribe to buyer's live location in Firestore (real-time)
   useEffect(() => {
@@ -120,9 +144,6 @@ export default function DeliveryMap({ location, buyerUserId, buyerName, buyerPho
       }
     };
   }, []);
-
-  // Effective buyer position: prefer live, fallback to order snapshot
-  const effectiveBuyerPos = buyerLivePos || fallbackPos;
 
   // Calculate distance
   const distanceKm = (effectiveBuyerPos && riderPos)
@@ -168,15 +189,16 @@ export default function DeliveryMap({ location, buyerUserId, buyerName, buyerPho
           )}
         </div>
 
-        {/* Map */}
-        <div className="map-container map-container-large">
+        {/* Map Container */}
+        <div className="map-container map-container-large" style={{ position: 'relative' }}>
           <Map
-            defaultZoom={14}
+            defaultZoom={16}
             defaultCenter={effectiveBuyerPos}
             gestureHandling={'greedy'}
             disableDefaultUI={true}
             style={{ width: '100%', height: '100%' }}
             mapId="DEMO_MAP_ID"
+            innerRef={handleMapLoad}
           >
             {/* Buyer pin (red) */}
             <AdvancedMarker position={effectiveBuyerPos}>
@@ -189,9 +211,62 @@ export default function DeliveryMap({ location, buyerUserId, buyerName, buyerPho
                 <RiderPin />
               </AdvancedMarker>
             )}
-
-            <MapBoundsController buyerPos={effectiveBuyerPos} riderPos={riderPos} />
           </Map>
+
+          {/* Floating Map Actions */}
+          <div style={{
+            position: 'absolute',
+            bottom: '16px',
+            right: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            zIndex: 10
+          }}>
+            <button
+              type="button"
+              onClick={recenterOnBuyer}
+              title="Focus on Buyer"
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                background: '#fff',
+                border: 'none',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: 'var(--accent)'
+              }}
+            >
+              <RefreshCw size={18} />
+            </button>
+            
+            {riderPos && (
+              <button
+                type="button"
+                onClick={fitBothPins}
+                title="Fit Both Pins"
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  background: '#fff',
+                  border: 'none',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: '#4285F4'
+                }}
+              >
+                <Maximize2 size={18} />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Live update timestamp */}
