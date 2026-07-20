@@ -72,6 +72,18 @@ export function AuthProvider({ children }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Initialize Median iOS bridge callback globally as early as possible to prevent race conditions
+  if (typeof window !== 'undefined' && !window.median_geolocation_ready) {
+    window.median_geolocation_ready = () => {
+      console.log('Median iOS native location initialization completed (early hook)');
+      if (window.triggerStartTracking) {
+        window.triggerStartTracking();
+      } else {
+        window.startTrackingPending = true;
+      }
+    };
+  }
+
   // Start continuous GPS tracking with watchPosition
   const startTracking = useCallback(() => {
     if (watchIdRef.current !== null) return; // Already tracking
@@ -123,6 +135,9 @@ export function AuthProvider({ children }) {
 
     // --- Median JS Bridge Native App Geolocation Integration ---
     if (typeof window !== 'undefined') {
+      // Register the execution trigger for the early hook
+      window.triggerStartTracking = runWatchPosition;
+
       // 1. Android: prompt native permission dialog
       if (window.median?.android?.geoLocation?.promptLocationServices) {
         try {
@@ -132,11 +147,12 @@ export function AuthProvider({ children }) {
         }
       }
 
-      // 2. iOS: hook into native bridge ready callback
-      window.median_geolocation_ready = () => {
-        console.log('Median iOS native location initialization completed');
+      // If the native iOS layer already fired the ready event before React mounted, consume it
+      if (window.startTrackingPending) {
         runWatchPosition();
-      };
+        window.startTrackingPending = false;
+        return;
+      }
 
       // Fallback: If running in web browser (not Median iOS wrapper), trigger immediately
       if (!navigator.userAgent.includes('MedianIOS')) {
@@ -155,26 +171,11 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // Auto-start tracking if user already has location permission
+  // Auto-start tracking immediately when the app loads
   useEffect(() => {
-    if (user && dbUser) {
-      // Check if permission was already granted (won't re-prompt)
-      if (navigator.permissions) {
-        navigator.permissions.query({ name: 'geolocation' }).then((result) => {
-          if (result.state === 'granted') {
-            startTracking();
-          }
-        }).catch(() => {
-          // permissions API not supported, try anyway if we have a location
-          if (dbUser.liveLocation || dbUser.location) {
-            startTracking();
-          }
-        });
-      }
-    }
-
+    startTracking();
     return () => stopTracking();
-  }, [user, dbUser, startTracking, stopTracking]);
+  }, [startTracking, stopTracking]);
 
   // Create a fresh RecaptchaVerifier each time we need one
   const setupRecaptcha = useCallback((containerId) => {

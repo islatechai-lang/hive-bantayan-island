@@ -107,28 +107,25 @@ export default function MenuPage() {
 
   return (
     <div className="page">
-      {/* GPS Permission Prompt Overlay */}
-      {showGpsPrompt && (
-        <div className="gps-prompt-overlay">
+      {/* GPS Blocker Overlay — Required to proceed */}
+      {!liveLocation && (
+        <div className="gps-prompt-overlay" style={{ zIndex: 9999 }}>
           <div className="gps-prompt-card">
             <div className="gps-prompt-icon">
               <MapPin size={40} className="text-accent" />
             </div>
-            <h2>Enable Location</h2>
-            <p>Allow location access to locate your delivery address automatically.</p>
+            <h2>Location Required</h2>
+            <p>We need your live GPS location to deliver your order accurately. Please enable location services to proceed.</p>
             <button 
               className="btn btn-primary btn-block btn-pill"
               onClick={handleEnableGps}
               disabled={requestingGps}
             >
-              {requestingGps ? 'Accessing GPS...' : 'Share My Location'}
+              {requestingGps ? 'Acquiring GPS Signal...' : 'Enable Location / Retry'}
             </button>
-            <button 
-              className="btn btn-ghost btn-block mt-sm"
-              onClick={() => setShowGpsPrompt(false)}
-            >
-              Maybe later
-            </button>
+            <p className="text-center text-xs text-secondary mt-md" style={{ margin: 0 }}>
+              Allow device GPS access when prompted to unlock the shop menu.
+            </p>
           </div>
         </div>
       )}
