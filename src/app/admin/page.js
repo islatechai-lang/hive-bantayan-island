@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../../lib/firebase';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, getDocs } from 'firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
@@ -19,6 +19,8 @@ export default function AdminPage() {
   const [productsLoading, setProductsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
 
+  const initialLoadRef = useRef(true);
+
   // Verify auth session
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -29,7 +31,7 @@ export default function AdminPage() {
     }
   }, []);
 
-  // Fetch orders in real time
+  // Fetch orders in real time with background MP3 audio alert
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -39,8 +41,21 @@ export default function AdminPage() {
       querySnapshot.forEach((doc) => {
         ordersData.push({ id: doc.id, ...doc.data() });
       });
-      setOrders(ordersData);
+
+      // Play audio notification on new orders (after initial load)
+      setOrders((prevOrders) => {
+        if (!initialLoadRef.current && ordersData.length > prevOrders.length) {
+          const hasNew = ordersData.some((n) => !prevOrders.some((o) => o.id === n.id));
+          if (hasNew) {
+            const audio = new Audio('/new-order.mp3');
+            audio.play().catch((err) => console.log('Audio autoplay blocked or failed:', err));
+          }
+        }
+        return ordersData;
+      });
+
       setOrdersLoading(false);
+      initialLoadRef.current = false;
     }, (error) => {
       console.error('Error listening to orders:', error);
       setOrdersLoading(false);
@@ -118,6 +133,20 @@ export default function AdminPage() {
     }
   };
 
+  const handleUpdateStock = async (productId, newStock) => {
+    const stockVal = Math.max(0, parseInt(newStock) || 0);
+    try {
+      const productRef = doc(db, 'products', productId);
+      await updateDoc(productRef, { stock: stockVal });
+      
+      // Update local state
+      setProducts(prev => prev.map(p => p.id === productId ? { ...p, stock: stockVal } : p));
+      showToast('Stock quantity updated!', 'success');
+    } catch (e) {
+      showToast('Failed to update stock count', 'error');
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="auth-page">
@@ -134,10 +163,11 @@ export default function AdminPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoFocus
               />
             </div>
             <button type="submit" className="btn btn-primary btn-block btn-pill mt-md">
-              Login
+              Unlock Dashboard
             </button>
           </form>
         </div>
@@ -150,56 +180,56 @@ export default function AdminPage() {
     ? orders 
     : orders.filter(o => o.status === statusFilter);
 
-  // Active delivery orders (preparing or out_for_delivery)
   const activeDeliveries = orders.filter(o => o.status === 'preparing' || o.status === 'out_for_delivery');
 
   return (
-    <div className="page-no-nav" style={{ paddingBottom: '40px' }}>
-      <div className="page-header">
+    <div className="page-no-nav">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 className="page-title" style={{ color: 'var(--accent)' }}>Admin Workspace</h1>
-          <p className="page-subtitle">Real-time Order & Delivery Management</p>
+          <h1 className="page-title">Hive Admin</h1>
+          <p className="page-subtitle">Manage menu inventory and deliveries</p>
         </div>
         <button 
           onClick={() => {
             sessionStorage.removeItem('hive_admin_authenticated');
             setIsAuthenticated(false);
-          }} 
-          className="btn btn-secondary btn-sm"
+            showToast('Logged out of Admin Panel', 'info');
+          }}
+          className="btn btn-secondary btn-sm btn-pill"
         >
           Logout
         </button>
       </div>
 
       {/* Tabs */}
-      <div className="admin-tabs">
+      <div className="category-tabs mb-lg">
         <button 
-          onClick={() => setActiveTab('orders')} 
-          className={`admin-tab ${activeTab === 'orders' ? 'active' : ''}`}
+          onClick={() => setActiveTab('orders')}
+          className={`category-tab ${activeTab === 'orders' ? 'active' : ''}`}
         >
           Orders ({orders.length})
         </button>
         <button 
-          onClick={() => setActiveTab('products')} 
-          className={`admin-tab ${activeTab === 'products' ? 'active' : ''}`}
+          onClick={() => setActiveTab('products')}
+          className={`category-tab ${activeTab === 'products' ? 'active' : ''}`}
         >
-          Menu Inventory
+          Inventory
         </button>
         <button 
-          onClick={() => setActiveTab('delivery')} 
-          className={`admin-tab ${activeTab === 'delivery' ? 'active' : ''}`}
+          onClick={() => setActiveTab('delivery')}
+          className={`category-tab ${activeTab === 'delivery' ? 'active' : ''}`}
         >
-          Active Deliveries ({activeDeliveries.length})
+          Deliveries ({activeDeliveries.length})
         </button>
       </div>
 
-      {/* Tab Contents: Orders */}
+      {/* Tab Contents: Orders list */}
       {activeTab === 'orders' && (
-        <div>
+        <div className="flex flex-col gap-md">
           {/* Status Filters */}
-          <div className="filter-pills">
-            {['all', 'pending', 'confirmed', 'preparing', 'out_for_delivery', 'delivered', 'cancelled'].map(f => (
-              <button 
+          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', WebkitOverflowScrolling: 'touch' }}>
+            {['all', 'pending', 'preparing', 'out_for_delivery', 'delivered', 'cancelled'].map(f => (
+              <button
                 key={f}
                 onClick={() => setStatusFilter(f)}
                 className={`filter-pill ${statusFilter === f ? 'active' : ''}`}
@@ -210,13 +240,13 @@ export default function AdminPage() {
           </div>
 
           {ordersLoading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}><LoadingSpinner /></div>
+            <LoadingSpinner />
           ) : filteredOrders.length === 0 ? (
             <div className="text-center text-secondary py-xl" style={{ padding: '60px 0' }}>No orders found matching filter</div>
           ) : (
             <div className="flex flex-col gap-md">
               {filteredOrders.map(order => (
-                <div key={order.id} className="admin-order-card">
+                <div key={order.id} className="card">
                   <div className="admin-order-header">
                     <div className="admin-order-customer">
                       <div className="admin-order-name">{order.userName}</div>
@@ -242,8 +272,8 @@ export default function AdminPage() {
                   <div style={{ marginBottom: '12px', fontSize: '13px' }}>
                     <strong>Address:</strong>
                     <p className="text-secondary">{order.address}</p>
-                    {order.addressNotes && (
-                      <p className="text-secondary" style={{ fontStyle: 'italic' }}>Note: {order.addressNotes}</p>
+                    {order.riderNote && (
+                      <p className="text-secondary" style={{ fontStyle: 'italic' }}>Note: {order.riderNote}</p>
                     )}
                   </div>
 
@@ -254,6 +284,12 @@ export default function AdminPage() {
                         <a href={order.gcashReceiptUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>
                           View Uploaded GCash Receipt 📸
                         </a>
+                        {order.aiVerification && (
+                          <div style={{ marginTop: '6px', padding: '6px 10px', background: order.aiVerification.valid ? '#e8f7ef' : '#fdecec', border: `1px solid ${order.aiVerification.valid ? '#bfe3cd' : '#f8c0c0'}`, borderRadius: '6px', fontSize: '12px' }}>
+                            <strong style={{ color: order.aiVerification.valid ? '#246b38' : '#c0392b' }}>AI Receipt Review:</strong>
+                            <p style={{ margin: '2px 0 0', color: 'var(--text-primary)' }}>{order.aiVerification.reason}</p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -265,7 +301,6 @@ export default function AdminPage() {
                       onChange={(e) => handleStatusChange(order.id, e.target.value)}
                     >
                       <option value="pending">Pending Approval</option>
-                      <option value="confirmed">Confirm Order</option>
                       <option value="preparing">Start Preparing</option>
                       <option value="out_for_delivery">Out for Delivery</option>
                       <option value="delivered">Delivered</option>
@@ -287,10 +322,10 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Tab Contents: Menu Inventory */}
+      {/* Tab Contents: Menu Inventory with Stock and Sold Out controls */}
       {activeTab === 'products' && (
         <div className="card">
-          <h3 className="section-title">In-Stock Toggles</h3>
+          <h3 className="section-title">Menu Inventory & Stocks</h3>
           {productsLoading ? (
             <LoadingSpinner />
           ) : (
@@ -302,12 +337,40 @@ export default function AdminPage() {
                     <div className="text-xs text-secondary">₱{p.price} • {p.category.toUpperCase()}</div>
                   </div>
                   
-                  <button
-                    onClick={() => handleToggleProduct(p.id, p.available)}
-                    className={`btn btn-sm ${p.available ? 'btn-primary' : 'btn-secondary'}`}
-                  >
-                    {p.available ? 'In Stock (Active)' : 'Sold Out (Disabled)'}
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    {/* Stock Counter Control */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#f8f0f2', border: '1px solid var(--border)', borderRadius: '20px', padding: '2px 8px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginRight: '2px' }}>Qty:</span>
+                      <button
+                        onClick={() => handleUpdateStock(p.id, (p.stock || 0) - 1)}
+                        className="qty-btn"
+                        style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', border: '1px solid #ddd', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        value={p.stock !== undefined ? p.stock : 0}
+                        onChange={(e) => handleUpdateStock(p.id, e.target.value)}
+                        style={{ width: '36px', border: 'none', background: 'transparent', textAlign: 'center', fontWeight: 'bold', fontSize: '13px' }}
+                      />
+                      <button
+                        onClick={() => handleUpdateStock(p.id, (p.stock || 0) + 1)}
+                        className="qty-btn"
+                        style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', border: '1px solid #ddd', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => handleToggleProduct(p.id, p.available)}
+                      className={`btn btn-sm ${p.available ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ minWidth: '90px' }}
+                    >
+                      {p.available ? 'Active' : 'Sold Out'}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

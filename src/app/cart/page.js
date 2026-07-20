@@ -124,7 +124,6 @@ export default function CartPage() {
         userId: user.uid,
         userName: dbUser?.name || 'Customer',
         userPhone: dbUser?.phone || user.phoneNumber || '',
-        // Live GPS location — rider navigates to this pin
         location: {
           lat: freshLocation.lat,
           lng: freshLocation.lng,
@@ -142,19 +141,26 @@ export default function CartPage() {
         deliveryFee: 0,
         total: getTotal(),
         paymentMethod,
-        gcashReceiptUrl: paymentMethod === 'gcash' ? receiptUrl : null,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        gcashReceiptUrl: paymentMethod === 'gcash' ? receiptUrl : null
       };
 
-      await addDoc(collection(db, 'orders'), orderData);
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to create order via API');
+      }
+
+      const result = await res.json();
       
       showToast('Order placed! Your rider will navigate to your GPS pin.', 'success');
       clearCart();
-      router.push('/orders');
+      router.push(`/order-success/${result.orderId}`);
     } catch (error) {
-      console.error('Error saving order:', error);
+      console.error('Error placing order:', error);
       showToast('Failed to place order. Please try again.', 'error');
     } finally {
       setSubmittingOrder(false);
