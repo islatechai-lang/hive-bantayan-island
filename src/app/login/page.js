@@ -136,7 +136,6 @@ export default function LoginPage() {
       const userSnap = await getDoc(userRef);
       
       if (userSnap.exists() && userSnap.data().name && userSnap.data().name !== 'Sweet Tooth Customer') {
-        showToast('Successfully logged in! 🎉', 'success');
         router.push('/');
       } else {
         showToast('Verification successful! Set your name to complete signup.', 'success');
@@ -168,7 +167,6 @@ export default function LoginPage() {
       const userSnap = await getDoc(userRef);
       
       if (userSnap.exists() && userSnap.data().name && userSnap.data().name !== 'Sweet Tooth Customer') {
-        showToast('Successfully logged in! 🎉', 'success');
         router.push('/');
       } else {
         showToast('Verification successful! Set your name to complete signup.', 'success');
@@ -297,7 +295,9 @@ export default function LoginPage() {
 
         {step === 'signup-name' && (
           <form onSubmit={handleSaveName}>
-            <UserCircle size={48} strokeWidth={1.5} className="text-accent" />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '1rem' }}>
+              <UserCircle size={48} strokeWidth={1.5} className="text-accent" />
+            </div>
             <h2>Enter your name</h2>
             <p className="text-secondary text-sm mb-lg text-center">
               Please enter your name to complete your registration.

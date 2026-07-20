@@ -1,17 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useRouter } from 'next/navigation';
 import { db } from '../../lib/firebase';
 import { collection, addDoc, writeBatch, doc, increment } from 'firebase/firestore';
-import { supabase } from '../../lib/supabase';
 import LiveLocationPreview from '../../components/LiveLocationPreview';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Image from 'next/image';
-import { ShoppingBag, Upload, ChevronLeft, Minus, Plus, Banknote, Smartphone, MessageSquare, Clock } from 'lucide-react';
+import { ShoppingBag, Upload, ChevronLeft, Minus, Plus, Banknote, Smartphone, MessageSquare, Clock, CheckCircle, X } from 'lucide-react';
 
 export default function CartPage() {
   const { user, dbUser, liveLocation, startTracking, forceLocationSync } = useAuth();
@@ -22,11 +21,13 @@ export default function CartPage() {
   const [riderNote, setRiderNote] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cod');
   const [receiptFile, setReceiptFile] = useState(null);
-  const [receiptUrl, setReceiptUrl] = useState('');
+  const [receiptUrl, setReceiptUrl] = useState('');    // base64 data URL
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState(''); // object URL for preview
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
   const [refreshingGps, setRefreshingGps] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -65,30 +66,47 @@ export default function CartPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      showToast('Please upload an image file (JPG, PNG, etc.)', 'error');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image too large. Please upload an image under 5MB.', 'error');
+      return;
+    }
+
     setUploadingReceipt(true);
     setReceiptFile(file);
 
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.uid}_${Date.now()}.${fileExt}`;
-      const filePath = `receipts/${fileName}`;
+      // Convert to base64 to store inline — no external storage dependency
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
 
-      const { error: uploadError } = await supabase.storage
-        .from('receipts')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from('receipts').getPublicUrl(filePath);
-      setReceiptUrl(data.publicUrl);
-      showToast('GCash receipt uploaded!', 'success');
+      setReceiptUrl(base64);
+      setReceiptPreviewUrl(URL.createObjectURL(file));
+      showToast('Receipt attached successfully!', 'success');
     } catch (error) {
-      console.error('Error uploading file:', error);
-      showToast('Failed to upload receipt. Try again.', 'error');
+      console.error('Error reading receipt file:', error);
+      showToast('Failed to read image. Please try again.', 'error');
       setReceiptFile(null);
     } finally {
       setUploadingReceipt(false);
     }
+  };
+
+  const handleRemoveReceipt = () => {
+    setReceiptFile(null);
+    setReceiptUrl('');
+    setReceiptPreviewUrl('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handlePlaceOrder = async (e) => {
@@ -303,39 +321,81 @@ export default function CartPage() {
 
             {paymentMethod === 'gcash' && (
               <div className="gcash-instructions">
-                <h4>GCash Payment Steps:</h4>
-                <p className="text-sm text-secondary">
-                  Send the exact total amount to the GCash account below:
-                </p>
-                <div className="gcash-number">09454320799</div>
-                <div className="gcash-name">Account Name: AL****H M** G.</div>
-                <div className="gcash-amount">Total: ₱{getTotal()}</div>
-                
-                <div className="receipt-upload">
-                  <label className="input-label">Upload Receipt Screenshot</label>
-                  <input 
-                    type="file" 
-                    id="receipt-file" 
-                    className="hidden" 
-                    accept="image/*" 
-                    onChange={handleReceiptUpload} 
-                  />
-                  <label htmlFor="receipt-file" className="receipt-upload-area">
-                    <Upload size={28} className="text-secondary mb-xs" />
-                    {uploadingReceipt ? (
-                      <p>Uploading receipt screenshot...</p>
-                    ) : (
-                      <p>Click here to attach GCash Receipt Screenshot</p>
-                    )}
-                  </label>
+                <h4 style={{ marginBottom: '1rem', fontWeight: 700 }}>How to Pay via GCash</h4>
 
-                  {receiptUrl && (
-                    <div className="receipt-preview">
-                      <img src={receiptUrl} alt="Receipt preview" />
-                      <div>
-                        <p style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--success)' }}>Receipt Attached</p>
-                        <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Click &apos;Place Order&apos; to submit</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                  {[
+                    { n: 1, text: 'Open your GCash app on your phone.' },
+                    { n: 2, text: 'Tap "Send Money" then choose "Express Send".' },
+                    { n: 3, text: <>Enter the number: <strong style={{ color: 'var(--accent)', letterSpacing: '0.05em' }}>0945 432 0799</strong></> },
+                    { n: 4, text: <>Account Name: <strong>AL****H M** G.</strong></> },
+                    { n: 5, text: <>Enter the exact amount: <strong style={{ color: 'var(--accent)' }}>₱{getTotal()}</strong></> },
+                    { n: 6, text: 'Add a note (optional): "Hive Order", then tap Confirm.' },
+                    { n: 7, text: 'Take a screenshot of the success receipt screen.' },
+                    { n: 8, text: 'Come back here and upload your receipt screenshot below.' },
+                  ].map(({ n, text }) => (
+                    <div key={n} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                      <span style={{ minWidth: '26px', height: '26px', borderRadius: '50%', background: 'var(--accent)', color: '#fff', fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{n}</span>
+                      <span style={{ fontSize: '13px', lineHeight: 1.5, paddingTop: '4px' }}>{text}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="receipt-upload">
+                  <label className="input-label" style={{ marginBottom: '0.5rem', display: 'block' }}>Step 8: Upload Your GCash Receipt</label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    id="receipt-file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleReceiptUpload}
+                  />
+
+                  {!receiptUrl ? (
+                    <label
+                      htmlFor="receipt-file"
+                      style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        gap: '0.5rem', border: '2px dashed var(--border)', borderRadius: '12px',
+                        padding: '1.5rem 1rem', cursor: 'pointer', transition: 'all 0.2s',
+                        background: 'var(--bg-secondary)', textAlign: 'center'
+                      }}
+                    >
+                      {uploadingReceipt ? (
+                        <>
+                          <div className="spinner" style={{ width: '28px', height: '28px' }} />
+                          <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Reading receipt image...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload size={28} color="var(--accent)" />
+                          <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Tap to Upload Receipt</span>
+                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>JPG, PNG — Max 5MB</span>
+                        </>
+                      )}
+                    </label>
+                  ) : (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: '0.75rem',
+                      background: 'var(--success-bg)', borderRadius: '12px', padding: '0.75rem 1rem',
+                      border: '1.5px solid var(--success)'
+                    }}>
+                      <img src={receiptPreviewUrl} alt="Receipt" style={{ width: '52px', height: '52px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <CheckCircle size={14} /> Receipt Attached
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{receiptFile?.name}</div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveReceipt}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--text-secondary)', flexShrink: 0 }}
+                        aria-label="Remove receipt"
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
                   )}
                 </div>

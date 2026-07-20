@@ -65,7 +65,7 @@ export default function ProfilePage() {
         <h1 className="page-title">Profile Settings</h1>
       </div>
 
-      <div className="profile-avatar" style={{ background: 'var(--card-bg-accent)', color: 'var(--accent)', fontWeight: 800 }}>
+      <div className="profile-avatar">
         {name.slice(0, 1).toUpperCase() || 'S'}
       </div>
 

@@ -10,7 +10,7 @@ import ProductCard from '../components/ProductCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ShoppingBag, Clock, MapPin } from 'lucide-react';
+import { ShoppingBag, Clock, MapPin, X } from 'lucide-react';
 
 export default function MenuPage() {
   const { user, loading: authLoading, locationDenied, liveLocation, startTracking } = useAuth();
@@ -22,6 +22,12 @@ export default function MenuPage() {
   const [category, setCategory] = useState('cake');
   const [isOpen, setIsOpen] = useState(true);
   const [requestingGps, setRequestingGps] = useState(false);
+  const [showBanner, setShowBanner] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('bannerDismissed') !== 'true';
+    }
+    return true;
+  });
 
   // Require login immediately on startup
   useEffect(() => {
@@ -149,12 +155,21 @@ export default function MenuPage() {
       )}
 
       {/* Hero Header Card */}
-      <div className="card-accent mb-lg text-center" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1.75rem 1.25rem' }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent)', margin: 0 }}>Free Delivery Islandwide!</h2>
-        <p className="text-secondary text-sm" style={{ margin: 0, lineHeight: 1.4, maxWidth: '280px' }}>
-          Indulge in artisanal tiramisu slices & premium thick milkshakes delivered straight to your home in Bantayan Island.
-        </p>
-      </div>
+      {showBanner && (
+        <div className="card-accent mb-lg text-center" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1.5rem 1.25rem', position: 'relative' }}>
+          <button
+            onClick={() => { setShowBanner(false); sessionStorage.setItem('bannerDismissed', 'true'); }}
+            aria-label="Dismiss banner"
+            style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '2px', lineHeight: 1, display: 'flex' }}
+          >
+            <X size={16} />
+          </button>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent)', margin: 0 }}>Free Delivery Islandwide!</h2>
+          <p className="text-secondary text-sm" style={{ margin: 0, lineHeight: 1.4, maxWidth: '280px' }}>
+            Indulge in artisanal tiramisu slices &amp; premium thick milkshakes delivered straight to your home in Bantayan Island.
+          </p>
+        </div>
+      )}
 
       {/* Categories Switch Tabs */}
       <div className="category-tabs">
