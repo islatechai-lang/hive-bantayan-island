@@ -75,48 +75,76 @@ export function AuthProvider({ children }) {
   // Start continuous GPS tracking with watchPosition
   const startTracking = useCallback(() => {
     if (watchIdRef.current !== null) return; // Already tracking
-    if (!navigator.geolocation) {
-      console.warn('Geolocation not supported by this browser');
-      return;
-    }
 
-    const id = navigator.geolocation.watchPosition(
-      async (position) => {
-        const loc = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          updatedAt: new Date().toISOString(),
-        };
-
-        // Always update local state immediately
-        setLiveLocation(loc);
-
-        // Throttle Firestore writes to every LOCATION_UPDATE_INTERVAL
-        const now = Date.now();
-        if (now - lastFirestoreUpdateRef.current >= LOCATION_UPDATE_INTERVAL) {
-          lastFirestoreUpdateRef.current = now;
-          try {
-            if (auth.currentUser) {
-              const userRef = doc(db, 'users', auth.currentUser.uid);
-              await setDoc(userRef, { liveLocation: loc }, { merge: true });
-            }
-          } catch (err) {
-            console.error('Error syncing live location:', err);
-          }
-        }
-      },
-      (err) => {
-        console.error('GPS watchPosition error:', err);
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 10000,
-        timeout: 20000,
+    const runWatchPosition = () => {
+      if (!navigator.geolocation) {
+        console.warn('Geolocation not supported by this browser');
+        return;
       }
-    );
 
-    watchIdRef.current = id;
+      const id = navigator.geolocation.watchPosition(
+        async (position) => {
+          const loc = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            updatedAt: new Date().toISOString(),
+          };
+
+          // Always update local state immediately
+          setLiveLocation(loc);
+
+          // Throttle Firestore writes to every LOCATION_UPDATE_INTERVAL
+          const now = Date.now();
+          if (now - lastFirestoreUpdateRef.current >= LOCATION_UPDATE_INTERVAL) {
+            lastFirestoreUpdateRef.current = now;
+            try {
+              if (auth.currentUser) {
+                const userRef = doc(db, 'users', auth.currentUser.uid);
+                await setDoc(userRef, { liveLocation: loc }, { merge: true });
+              }
+            } catch (err) {
+              console.error('Error syncing live location:', err);
+            }
+          }
+        },
+        (err) => {
+          console.error('GPS watchPosition error:', err);
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 5000,
+          timeout: 20000,
+        }
+      );
+
+      watchIdRef.current = id;
+    };
+
+    // --- Median JS Bridge Native App Geolocation Integration ---
+    if (typeof window !== 'undefined') {
+      // 1. Android: prompt native permission dialog
+      if (window.median?.android?.geoLocation?.promptLocationServices) {
+        try {
+          window.median.android.geoLocation.promptLocationServices();
+        } catch (e) {
+          console.warn('Median Android native geolocation permission prompt failed:', e);
+        }
+      }
+
+      // 2. iOS: hook into native bridge ready callback
+      window.median_geolocation_ready = () => {
+        console.log('Median iOS native location initialization completed');
+        runWatchPosition();
+      };
+
+      // Fallback: If running in web browser (not Median iOS wrapper), trigger immediately
+      if (!navigator.userAgent.includes('MedianIOS')) {
+        runWatchPosition();
+      }
+    } else {
+      runWatchPosition();
+    }
   }, []);
 
   // Stop GPS tracking
