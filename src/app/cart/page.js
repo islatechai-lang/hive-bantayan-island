@@ -72,30 +72,49 @@ export default function CartPage() {
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      showToast('Image too large. Please upload an image under 5MB.', 'error');
-      return;
-    }
-
     setUploadingReceipt(true);
     setReceiptFile(file);
 
     try {
-      // Convert to base64 to store inline — no external storage dependency
-      const base64 = await new Promise((resolve, reject) => {
+      // Compress the image before uploading to Firestore to stay well under 1MB limits
+      const compressedBase64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
+        reader.onload = (event) => {
+          const img = new window.Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 800;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Export as JPEG with 0.6 quality
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+            resolve(dataUrl);
+          };
+          img.onerror = reject;
+          img.src = event.target.result;
+        };
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
 
-      setReceiptUrl(base64);
+      setReceiptUrl(compressedBase64);
       setReceiptPreviewUrl(URL.createObjectURL(file));
       showToast('Receipt attached successfully!', 'success');
     } catch (error) {
-      console.error('Error reading receipt file:', error);
-      showToast('Failed to read image. Please try again.', 'error');
+      console.error('Error compressing receipt file:', error);
+      showToast('Failed to process image. Please try again.', 'error');
       setReceiptFile(null);
     } finally {
       setUploadingReceipt(false);
@@ -330,9 +349,7 @@ export default function CartPage() {
                     { n: 3, text: <>Enter the number: <strong style={{ color: 'var(--accent)', letterSpacing: '0.05em' }}>0945 432 0799</strong></> },
                     { n: 4, text: <>Account Name: <strong>AL****H M** G.</strong></> },
                     { n: 5, text: <>Enter the exact amount: <strong style={{ color: 'var(--accent)' }}>₱{getTotal()}</strong></> },
-                    { n: 6, text: 'Add a note (optional): "Hive Order", then tap Confirm.' },
-                    { n: 7, text: 'Take a screenshot of the success receipt screen.' },
-                    { n: 8, text: 'Come back here and upload your receipt screenshot below.' },
+                    { n: 6, text: 'Take a screenshot or download the success receipt screen.' },
                   ].map(({ n, text }) => (
                     <div key={n} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
                       <span style={{ minWidth: '26px', height: '26px', borderRadius: '50%', background: 'var(--accent)', color: '#fff', fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{n}</span>
@@ -342,7 +359,7 @@ export default function CartPage() {
                 </div>
 
                 <div className="receipt-upload">
-                  <label className="input-label" style={{ marginBottom: '0.5rem', display: 'block' }}>Step 8: Upload Your GCash Receipt</label>
+                  <label className="input-label" style={{ marginBottom: '0.5rem', display: 'block' }}>Upload Your GCash Receipt</label>
                   <input
                     ref={fileInputRef}
                     type="file"
