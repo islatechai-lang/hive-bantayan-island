@@ -17,9 +17,20 @@ export default function AdminPage() {
   const [products, setProducts] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('preparing');
+  const [audioEnabled, setAudioEnabled] = useState(false);
 
   const initialLoadRef = useRef(true);
+
+  // Auto-enable audio on first click on document
+  useEffect(() => {
+    const enableAudio = () => {
+      setAudioEnabled(true);
+      window.removeEventListener('click', enableAudio);
+    };
+    window.addEventListener('click', enableAudio);
+    return () => window.removeEventListener('click', enableAudio);
+  }, []);
 
   // Verify auth session
   useEffect(() => {
@@ -187,7 +198,14 @@ export default function AdminPage() {
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="page-title">Hive Admin</h1>
-          <p className="page-subtitle">Manage menu inventory and deliveries</p>
+          <p className="page-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            Manage menu inventory and deliveries
+            {!audioEnabled && (
+              <span style={{ fontSize: '11px', background: 'var(--warning-bg)', color: 'var(--warning)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+                🔊 Tap screen to enable audio alerts
+              </span>
+            )}
+          </p>
         </div>
         <button 
           onClick={() => {
@@ -228,7 +246,7 @@ export default function AdminPage() {
         <div className="flex flex-col gap-md">
           {/* Status Filters */}
           <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', WebkitOverflowScrolling: 'touch' }}>
-            {['all', 'pending', 'preparing', 'out_for_delivery', 'delivered', 'cancelled'].map(f => (
+            {['preparing', 'pending', 'out_for_delivery', 'delivered', 'cancelled', 'all'].map(f => (
               <button
                 key={f}
                 onClick={() => setStatusFilter(f)}
