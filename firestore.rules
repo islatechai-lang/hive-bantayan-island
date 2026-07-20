@@ -21,11 +21,8 @@ service cloud.firestore {
 
     // 2. Products collection rules
     match /products/{productId} {
-      // Anyone can browse products (public read)
-      allow read: if true;
-      
-      // Clients cannot write to products. Only Admin SDK (server-side / seed script) can write.
-      allow write: if false;
+      // Anyone can browse and write products (public read/write)
+      allow read, write: if true;
     }
 
     // 3. Orders collection rules
