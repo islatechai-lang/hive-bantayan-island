@@ -86,7 +86,11 @@ export function AuthProvider({ children }) {
 
   // Start continuous GPS tracking with watchPosition
   const startTracking = useCallback(() => {
-    if (watchIdRef.current !== null) return; // Already tracking
+    // Force a fresh watchPosition restart if tracking is requested again
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
 
     const runWatchPosition = () => {
       if (!navigator.geolocation) {
@@ -135,16 +139,37 @@ export function AuthProvider({ children }) {
 
     // --- Median JS Bridge Native App Geolocation Integration ---
     if (typeof window !== 'undefined') {
-      // Register the execution trigger for the early hook
+      // Register the execution trigger for the early iOS hook
       window.triggerStartTracking = runWatchPosition;
 
-      // 1. Android: prompt native permission dialog
-      if (window.median?.android?.geoLocation?.promptLocationServices) {
-        try {
-          window.median.android.geoLocation.promptLocationServices();
-        } catch (e) {
-          console.warn('Median Android native geolocation permission prompt failed:', e);
+      // Check if running inside Median Android container
+      const isMedianAndroid = navigator.userAgent.includes('MedianAndroid') || 
+                              navigator.userAgent.includes('GoNativeAndroid') || 
+                              window.median !== undefined;
+
+      const triggerAndroidLocationPrompt = () => {
+        if (window.median?.android?.geoLocation?.promptLocationServices) {
+          try {
+            window.median.android.geoLocation.promptLocationServices();
+            console.log('Median Android native promptLocationServices triggered successfully');
+          } catch (e) {
+            console.warn('Failed to prompt location on Median Android:', e);
+          }
         }
+      };
+
+      if (isMedianAndroid) {
+        // Poll for window.median to be injected by the webview container (usually takes a fraction of a second)
+        let attempts = 0;
+        const intervalId = setInterval(() => {
+          attempts++;
+          if (window.median?.android?.geoLocation?.promptLocationServices) {
+            triggerAndroidLocationPrompt();
+            clearInterval(intervalId);
+          } else if (attempts >= 30) { // 3 seconds maximum polling time
+            clearInterval(intervalId);
+          }
+        }, 100);
       }
 
       // If the native iOS layer already fired the ready event before React mounted, consume it
@@ -154,7 +179,7 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      // Fallback: If running in web browser (not Median iOS wrapper), trigger immediately
+      // Fallback/Standard run: Standard browsers and Android run runWatchPosition immediately
       if (!navigator.userAgent.includes('MedianIOS')) {
         runWatchPosition();
       }
