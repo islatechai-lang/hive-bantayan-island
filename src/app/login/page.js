@@ -246,6 +246,8 @@ export default function LoginPage() {
               </div>
             </div>
 
+            <div id="recaptcha-container" style={{ margin: '1rem 0', display: 'flex', justifyContent: 'center', minHeight: '78px' }}></div>
+
             <button
               type="submit"
               className="btn btn-primary btn-block mt-lg btn-pill"
@@ -339,8 +341,6 @@ export default function LoginPage() {
         )}
       </div>
       
-      {/* Invisible reCAPTCHA container */}
-      <div id="recaptcha-container"></div>
     </div>
   );
 }
