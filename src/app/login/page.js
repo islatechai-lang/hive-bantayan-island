@@ -235,7 +235,7 @@ export default function LoginPage() {
                 <input
                   type="tel"
                   className="input"
-                  placeholder="0945 432 0799 or 945 432 0799"
+                  placeholder="09XX XXX XXXX"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   disabled={sendingOTP}
