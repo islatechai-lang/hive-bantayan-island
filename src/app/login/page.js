@@ -52,15 +52,26 @@ export default function LoginPage() {
   const handleSendOTP = async (e) => {
     e.preventDefault();
     
-    if (!phoneNumber || phoneNumber.length < 10) {
-      showToast('Please enter a valid 10-digit phone number', 'error');
+    // Normalize phone number: strip all non-digits
+    let cleanPhone = phoneNumber.replace(/\D/g, '');
+    
+    // Handle user typing country code 63 at start
+    if (cleanPhone.startsWith('63')) {
+      cleanPhone = cleanPhone.substring(2);
+    }
+    // Handle user typing leading 0 (e.g. 09454320799 -> 9454320799)
+    if (cleanPhone.startsWith('0')) {
+      cleanPhone = cleanPhone.substring(1);
+    }
+
+    if (cleanPhone.length !== 10 || !cleanPhone.startsWith('9')) {
+      showToast('Please enter a valid 10-digit mobile number starting with 9 (e.g. 09454320799 or 9454320799)', 'error');
       return;
     }
     
     setSendingOTP(true);
     
     // Format to E.164: +63XXXXXXXXXX
-    const cleanPhone = phoneNumber.startsWith('0') ? phoneNumber.substring(1) : phoneNumber;
     const formattedPhone = `+63${cleanPhone}`;
 
     try {
@@ -224,12 +235,12 @@ export default function LoginPage() {
                 <input
                   type="tel"
                   className="input"
-                  placeholder="912 345 6789"
+                  placeholder="0945 432 0799 or 945 432 0799"
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
                   disabled={sendingOTP}
                   required
-                  maxLength="10"
+                  maxLength="13"
                   autoComplete="tel"
                 />
               </div>
