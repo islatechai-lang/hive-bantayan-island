@@ -233,7 +233,7 @@ export function AuthProvider({ children }) {
     }
 
     const verifier = new RecaptchaVerifier(auth, containerId, {
-      size: 'normal',
+      size: 'invisible',
       callback: () => {
         console.log('reCAPTCHA solved');
       },
