@@ -51,51 +51,22 @@ export default function OrderSuccessPage() {
   return (
     <div className="page">
       <div className="text-center mb-lg">
-        {/* Animated Rider Motorcycle Icon & Road Animation */}
-        <div className="motorcycle-anim-container">
-          <div className="road-line"></div>
-          <div className="motorcycle-wrapper">
-            <span className="motorcycle-icon">🛵💨</span>
+        {/* Elegant Stationary Motorcycle Badge */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
+          <div style={{
+            width: '88px',
+            height: '88px',
+            borderRadius: '50%',
+            background: 'var(--card-bg-accent, #fff0f3)',
+            border: '2px solid var(--accent, #EB687E)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 24px rgba(235,104,126,0.2)',
+            fontSize: '3rem'
+          }}>
+            🛵
           </div>
-          <style dangerouslySetInnerHTML={{__html: `
-            .motorcycle-anim-container {
-              position: relative;
-              width: 140px;
-              height: 70px;
-              margin: 0 auto 1rem auto;
-              overflow: hidden;
-            }
-            .road-line {
-              position: absolute;
-              bottom: 12px;
-              left: 0;
-              right: 0;
-              height: 3px;
-              background: linear-gradient(90deg, transparent, var(--accent), transparent);
-              border-radius: 2px;
-              animation: roadMove 1.2s linear infinite;
-            }
-            .motorcycle-wrapper {
-              position: absolute;
-              bottom: 16px;
-              left: 10px;
-              font-size: 2.8rem;
-              animation: rideDrive 2s ease-in-out infinite alternate, motorcycleBounce 0.4s ease-in-out infinite alternate;
-            }
-            @keyframes rideDrive {
-              0% { transform: translateX(0px); }
-              100% { transform: translateX(50px); }
-            }
-            @keyframes motorcycleBounce {
-              0% { translateY(0px); }
-              100% { translateY(-3px); }
-            }
-            @keyframes roadMove {
-              0% { opacity: 0.3; }
-              50% { opacity: 1; }
-              100% { opacity: 0.3; }
-            }
-          `}} />
         </div>
 
         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 0.5rem' }}>
