@@ -51,63 +51,58 @@ export default function OrderSuccessPage() {
   return (
     <div className="page">
       <div className="text-center mb-lg">
-        {/* Custom CSS-animated Checkmark (Plays exactly once) */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
-          <svg className="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52" style={{
-            width: '80px',
-            height: '80px',
-            borderRadius: '50%',
-            display: 'block',
-            strokeWidth: '4',
-            stroke: '#25cf73',
-            strokeMiterlimit: '10',
-            boxShadow: 'inset 0px 0px 0px #25cf73',
-            animation: 'fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both'
-          }}>
-            <circle className="checkmark__circle" cx="26" cy="26" r="25" fill="none" style={{
-              strokeDasharray: '166',
-              strokeDashoffset: '166',
-              strokeWidth: '4',
-              strokeMiterlimit: '10',
-              stroke: '#25cf73',
-              fill: 'none',
-              animation: 'stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards'
-            }} />
-            <path className="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" style={{
-              transformOrigin: '50% 50%',
-              strokeDasharray: '48',
-              strokeDashoffset: '48',
-              stroke: '#fff',
-              animation: 'stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards'
-            }} />
-          </svg>
+        {/* Animated Rider Motorcycle Icon & Road Animation */}
+        <div className="motorcycle-anim-container">
+          <div className="road-line"></div>
+          <div className="motorcycle-wrapper">
+            <span className="motorcycle-icon">🛵💨</span>
+          </div>
           <style dangerouslySetInnerHTML={{__html: `
-            @keyframes stroke {
-              100% {
-                stroke-dashoffset: 0;
-              }
+            .motorcycle-anim-container {
+              position: relative;
+              width: 140px;
+              height: 70px;
+              margin: 0 auto 1rem auto;
+              overflow: hidden;
             }
-            @keyframes scale {
-              0%, 100% {
-                transform: none;
-              }
-              50% {
-                transform: scale3d(1.1, 1.1, 1);
-              }
+            .road-line {
+              position: absolute;
+              bottom: 12px;
+              left: 0;
+              right: 0;
+              height: 3px;
+              background: linear-gradient(90deg, transparent, var(--accent), transparent);
+              border-radius: 2px;
+              animation: roadMove 1.2s linear infinite;
             }
-            @keyframes fill {
-              100% {
-                box-shadow: inset 0px 0px 0px 40px #25cf73;
-              }
+            .motorcycle-wrapper {
+              position: absolute;
+              bottom: 16px;
+              left: 10px;
+              font-size: 2.8rem;
+              animation: rideDrive 2s ease-in-out infinite alternate, motorcycleBounce 0.4s ease-in-out infinite alternate;
+            }
+            @keyframes rideDrive {
+              0% { transform: translateX(0px); }
+              100% { transform: translateX(50px); }
+            }
+            @keyframes motorcycleBounce {
+              0% { translateY(0px); }
+              100% { translateY(-3px); }
+            }
+            @keyframes roadMove {
+              0% { opacity: 0.3; }
+              50% { opacity: 1; }
+              100% { opacity: 0.3; }
             }
           `}} />
         </div>
 
         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 0.5rem' }}>
-          Order Received!
+          Rider is on its way! 🍰
         </h1>
         <p className="text-secondary" style={{ fontSize: '1rem', margin: 0 }}>
-          Your sweet treats will be delivered in <strong style={{ color: 'var(--accent)' }}>10-20 mins</strong>!
+          Your order has been received and your rider will arrive in <strong style={{ color: 'var(--accent)' }}>10-20 mins</strong>!
         </p>
       </div>
 

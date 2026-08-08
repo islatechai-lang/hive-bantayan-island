@@ -115,6 +115,52 @@ export async function POST(request) {
 
     const docRef = await adminDb.collection('orders').add(finalOrderData);
 
+    // Send email alert to Admin via Resend API
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const notificationEmail = process.env.NOTIFICATION_EMAIL || 'princederder44@gmail.com';
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+
+    if (resendApiKey) {
+      try {
+        const itemsListHtml = (orderData.items || [])
+          .map(i => `<li><strong>${i.quantity}x</strong> ${i.name} — ₱${i.price * i.quantity}</li>`)
+          .join('');
+
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: `Hive Orders <${fromEmail}>`,
+            to: [notificationEmail],
+            subject: `🚨 NEW ORDER # ${docRef.id.slice(-6).toUpperCase()} - ₱${total} (${paymentMethod.toUpperCase()})`,
+            html: `
+              <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+                <h2 style="color: #EB687E;">🍰 New Order Received on Hive Bantayan!</h2>
+                <p><strong>Customer Name:</strong> ${orderData.userName || 'Customer'}</p>
+                <p><strong>Phone:</strong> ${orderData.userPhone || 'N/A'}</p>
+                <p><strong>Delivery Address:</strong> ${orderData.address || 'N/A'}</p>
+                <p><strong>Payment Method:</strong> ${paymentMethod.toUpperCase()}</p>
+                <p><strong>Total Amount:</strong> ₱${total}</p>
+                ${orderData.riderNote ? `<p><strong>Note for Rider:</strong> <em>${orderData.riderNote}</em></p>` : ''}
+                
+                <h3>Items:</h3>
+                <ul>${itemsListHtml}</ul>
+
+                <br/>
+                <a href="https://hive-bantayan-8598e.web.app/admin" style="background: #EB687E; color: white; padding: 10px 20px; text-decoration: none; border-radius: 20px; font-weight: bold;">Open Admin Dashboard</a>
+              </div>
+            `
+          })
+        });
+        console.log('Resend email notification sent successfully to:', notificationEmail);
+      } catch (emailErr) {
+        console.error('Failed to send Resend email alert:', emailErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       orderId: docRef.id,

@@ -30,7 +30,7 @@ export default function AdminPage() {
 
   const initialLoadRef = useRef(true);
 
-  // Auto-enable audio on first click on document
+  // Auto-enable audio on first click on document without re-triggering sound logic unexpectedly
   useEffect(() => {
     const enableAudio = () => {
       setAudioEnabled(true);
@@ -66,20 +66,24 @@ export default function AdminPage() {
         ordersData.push({ id: doc.id, ...doc.data() });
       });
 
-      // Play audio notification on new orders (after initial load)
-      setOrders((prevOrders) => {
-        if (!initialLoadRef.current && ordersData.length > prevOrders.length) {
-          const hasNew = ordersData.some((n) => !prevOrders.some((o) => o.id === n.id));
-          if (hasNew) {
-            const audio = new Audio('/new-order.mp3');
-            audio.play().catch((err) => console.log('Audio autoplay blocked or failed:', err));
+      // Play audio notification strictly when a NEW order is created after initial load
+      if (initialLoadRef.current) {
+        setOrders(ordersData);
+        initialLoadRef.current = false;
+      } else {
+        setOrders((prevOrders) => {
+          if (ordersData.length > prevOrders.length) {
+            const hasNew = ordersData.some((n) => !prevOrders.some((o) => o.id === n.id));
+            if (hasNew) {
+              const audio = new Audio('/new-order.mp3');
+              audio.play().catch((err) => console.log('Audio autoplay blocked or failed:', err));
+            }
           }
-        }
-        return ordersData;
-      });
+          return ordersData;
+        });
+      }
 
       setOrdersLoading(false);
-      initialLoadRef.current = false;
     }, (error) => {
       console.error('Error listening to orders:', error);
       setOrdersLoading(false);
