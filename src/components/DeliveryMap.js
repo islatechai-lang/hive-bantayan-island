@@ -50,6 +50,50 @@ function getDistanceKm(pos1, pos2) {
   return R * c;
 }
 
+// Component to draw a dashed polyline between two points
+function RouteLine({ from, to, mapInstance }) {
+  const lineRef = useRef(null);
+
+  useEffect(() => {
+    if (!mapInstance || !from || !to || !window.google) return;
+
+    // Clean up old line
+    if (lineRef.current) {
+      lineRef.current.setMap(null);
+    }
+
+    // Create a dashed polyline
+    const lineSymbol = {
+      path: 'M 0,-1 0,1',
+      strokeOpacity: 1,
+      strokeColor: '#4285F4',
+      scale: 3,
+    };
+
+    const line = new window.google.maps.Polyline({
+      path: [from, to],
+      strokeOpacity: 0,
+      icons: [{
+        icon: lineSymbol,
+        offset: '0',
+        repeat: '16px',
+      }],
+      map: mapInstance,
+    });
+
+    lineRef.current = line;
+
+    return () => {
+      if (lineRef.current) {
+        lineRef.current.setMap(null);
+        lineRef.current = null;
+      }
+    };
+  }, [mapInstance, from, to]);
+
+  return null;
+}
+
 export default function DeliveryMap({ location, buyerUserId, buyerName, buyerPhone }) {
   const [buyerLivePos, setBuyerLivePos] = useState(null);
   const [riderPos, setRiderPos] = useState(null);
@@ -150,6 +194,9 @@ export default function DeliveryMap({ location, buyerUserId, buyerName, buyerPho
     ? getDistanceKm(effectiveBuyerPos, riderPos)
     : null;
 
+  // Estimate ETA (rough: assume 25 km/h average speed for motorbike on island roads)
+  const etaMinutes = distanceKm !== null ? Math.max(1, Math.round((distanceKm / 25) * 60)) : null;
+
   // Open Google Maps navigation
   const handleNavigate = () => {
     if (!effectiveBuyerPos) return;
@@ -178,15 +225,24 @@ export default function DeliveryMap({ location, buyerUserId, buyerName, buyerPho
               {isLive ? 'Buyer Live' : 'Last Known Location'}
             </span>
           </div>
-          {distanceKm !== null && (
-            <div className="delivery-status-item">
-              <span style={{ fontWeight: 700, color: 'var(--accent)', fontSize: '0.9rem' }}>
-                {distanceKm < 1
-                  ? `${Math.round(distanceKm * 1000)}m away`
-                  : `${distanceKm.toFixed(1)}km away`}
-              </span>
-            </div>
-          )}
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {distanceKm !== null && (
+              <div className="delivery-status-item">
+                <span style={{ fontWeight: 700, color: 'var(--accent)', fontSize: '0.9rem' }}>
+                  {distanceKm < 1
+                    ? `${Math.round(distanceKm * 1000)}m`
+                    : `${distanceKm.toFixed(1)}km`}
+                </span>
+              </div>
+            )}
+            {etaMinutes !== null && (
+              <div className="delivery-status-item">
+                <span style={{ fontWeight: 600, color: '#4285F4', fontSize: '0.85rem' }}>
+                  ~{etaMinutes} min
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Map Container */}
@@ -210,6 +266,11 @@ export default function DeliveryMap({ location, buyerUserId, buyerName, buyerPho
               <AdvancedMarker position={riderPos}>
                 <RiderPin />
               </AdvancedMarker>
+            )}
+
+            {/* Route line between rider and buyer */}
+            {riderPos && effectiveBuyerPos && mapRef.current && (
+              <RouteLine from={riderPos} to={effectiveBuyerPos} mapInstance={mapRef.current} />
             )}
           </Map>
 

@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { db } from '../../../../lib/firebase';
+import { auth, db } from '../../../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { useParams, useRouter } from 'next/navigation';
 import { useToast } from '../../../../contexts/ToastContext';
 import DeliveryMap from '../../../../components/DeliveryMap';
@@ -17,19 +18,25 @@ export default function DeliveryDetailPage() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
 
-  // Authenticate driver view (uses same sessionStorage as admin)
+  // Authenticate using Firebase Auth + localStorage admin flag
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const isAuth = sessionStorage.getItem('hive_admin_authenticated');
-      if (isAuth !== 'true') {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      const isAdmin = typeof window !== 'undefined' && localStorage.getItem('hive_admin_role') === 'true';
+      if (!firebaseUser || !isAdmin) {
         showToast('Unauthorized access. Please login.', 'error');
         router.push('/admin');
+      } else {
+        setAuthReady(true);
       }
-    }
+    });
+    return () => unsubscribe();
   }, [router, showToast]);
 
   useEffect(() => {
+    if (!authReady) return;
+    
     async function fetchOrder() {
       if (!params.id) return;
       try {
@@ -50,7 +57,7 @@ export default function DeliveryDetailPage() {
     }
 
     fetchOrder();
-  }, [params.id, router, showToast]);
+  }, [authReady, params.id, router, showToast]);
 
   const handleMarkDelivered = async () => {
     setUpdating(true);
@@ -73,7 +80,7 @@ export default function DeliveryDetailPage() {
     }
   };
 
-  if (loading) {
+  if (!authReady || loading) {
     return <LoadingSpinner fullPage={true} text="Loading delivery..." />;
   }
 

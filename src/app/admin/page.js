@@ -1,24 +1,32 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { db } from '../../lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, getDocs } from 'firebase/firestore';
+import { auth, db } from '../../lib/firebase';
+import { signInAnonymously, onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
 import StatusBadge from '../../components/StatusBadge';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Link from 'next/link';
+import { Truck, Smartphone, Users, ChevronDown } from 'lucide-react';
+
+const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || '1234';
 
 export default function AdminPage() {
   const { showToast } = useToast();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
   const [password, setPassword] = useState('');
-  const [activeTab, setActiveTab] = useState('orders'); // orders | products | delivery
+  const [loggingIn, setLoggingIn] = useState(false);
+  const [activeTab, setActiveTab] = useState('orders'); // orders | products | delivery | riders
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
+  const [riders, setRiders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('preparing');
   const [audioEnabled, setAudioEnabled] = useState(false);
+  const [assigningOrderId, setAssigningOrderId] = useState(null);
 
   const initialLoadRef = useRef(true);
 
@@ -32,14 +40,19 @@ export default function AdminPage() {
     return () => window.removeEventListener('click', enableAudio);
   }, []);
 
-  // Verify auth session
+  // Check Firebase Auth state on mount (persists across reloads & devices)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const isAuth = sessionStorage.getItem('hive_admin_authenticated');
-      if (isAuth === 'true') {
-        setIsAuthenticated(true);
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        // Check if admin flag is stored in localStorage (set when they enter the password)
+        const isAdmin = typeof window !== 'undefined' && localStorage.getItem('hive_admin_role') === 'true';
+        if (isAdmin) {
+          setIsAuthenticated(true);
+        }
       }
-    }
+      setAuthChecking(false);
+    });
+    return () => unsubscribe();
   }, []);
 
   // Fetch orders in real time with background MP3 audio alert
@@ -95,16 +108,62 @@ export default function AdminPage() {
     return () => unsubscribe();
   }, [isAuthenticated]);
 
-  const handleLogin = (e) => {
+  // Fetch active rider devices in real time
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const q = query(collection(db, 'riders'));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const ridersData = [];
+      querySnapshot.forEach((doc) => {
+        ridersData.push({ id: doc.id, ...doc.data() });
+      });
+      setRiders(ridersData);
+    }, (error) => {
+      console.error('Error listening to riders:', error);
+    });
+
+    return () => unsubscribe();
+  }, [isAuthenticated]);
+
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (password === '1234') {
-      setIsAuthenticated(true);
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('hive_admin_authenticated', 'true');
-      }
-      showToast('Admin access granted', 'success');
-    } else {
+    if (password !== ADMIN_PASSWORD) {
       showToast('Invalid password', 'error');
+      return;
+    }
+
+    setLoggingIn(true);
+    try {
+      // Sign in anonymously to get a real Firebase Auth token
+      // This makes Firestore reads work on ANY device
+      await signInAnonymously(auth);
+      
+      // Mark this session as admin in localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('hive_admin_role', 'true');
+      }
+      
+      setIsAuthenticated(true);
+      showToast('Admin access granted', 'success');
+    } catch (error) {
+      console.error('Anonymous auth error:', error);
+      showToast('Authentication failed. Please try again.', 'error');
+    } finally {
+      setLoggingIn(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('hive_admin_role');
+      }
+      await firebaseSignOut(auth);
+      setIsAuthenticated(false);
+      showToast('Logged out of Admin Panel', 'info');
+    } catch (error) {
+      console.error('Sign out error:', error);
     }
   };
 
@@ -154,6 +213,66 @@ export default function AdminPage() {
     }
   };
 
+  // Assign an order to a specific rider device
+  const handleAssignToRider = async (orderId, riderId, riderName) => {
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      await updateDoc(orderRef, {
+        assignedRiderId: riderId,
+        assignedRiderName: riderName,
+        assignedAt: new Date().toISOString()
+      });
+
+      // Update local state
+      setOrders(prev => prev.map(o => o.id === orderId
+        ? { ...o, assignedRiderId: riderId, assignedRiderName: riderName, assignedAt: new Date().toISOString() }
+        : o
+      ));
+
+      setAssigningOrderId(null);
+      showToast(`Order assigned to ${riderName}`, 'success');
+    } catch (error) {
+      console.error('Assign error:', error);
+      showToast('Failed to assign order', 'error');
+    }
+  };
+
+  // Unassign an order
+  const handleUnassignOrder = async (orderId) => {
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      await updateDoc(orderRef, {
+        assignedRiderId: null,
+        assignedRiderName: null,
+        assignedAt: null
+      });
+
+      setOrders(prev => prev.map(o => o.id === orderId
+        ? { ...o, assignedRiderId: null, assignedRiderName: null, assignedAt: null }
+        : o
+      ));
+
+      showToast('Order unassigned', 'info');
+    } catch (error) {
+      console.error('Unassign error:', error);
+      showToast('Failed to unassign order', 'error');
+    }
+  };
+
+  // Remove a rider device
+  const handleRemoveRider = async (riderId) => {
+    try {
+      await deleteDoc(doc(db, 'riders', riderId));
+      showToast('Rider device removed', 'info');
+    } catch (error) {
+      showToast('Failed to remove rider', 'error');
+    }
+  };
+
+  if (authChecking) {
+    return <LoadingSpinner fullPage={true} text="Checking authentication..." />;
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="auth-page">
@@ -171,10 +290,11 @@ export default function AdminPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoFocus
+                disabled={loggingIn}
               />
             </div>
-            <button type="submit" className="btn btn-primary btn-block btn-pill mt-md">
-              Unlock Dashboard
+            <button type="submit" className="btn btn-primary btn-block btn-pill mt-md" disabled={loggingIn}>
+              {loggingIn ? 'Authenticating...' : 'Unlock Dashboard'}
             </button>
           </form>
         </div>
@@ -189,26 +309,34 @@ export default function AdminPage() {
 
   const activeDeliveries = orders.filter(o => o.status === 'preparing' || o.status === 'out_for_delivery');
 
+  // Count online riders (active in last 2 minutes)
+  const onlineRiders = riders.filter(r => {
+    if (!r.lastSeen) return false;
+    const diff = Date.now() - new Date(r.lastSeen).getTime();
+    return diff < 120000; // 2 minutes
+  });
+
   return (
     <div className="page-no-nav">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="page-title">Hive Admin</h1>
-          <p className="page-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <p className="page-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             Manage menu inventory and deliveries
             {!audioEnabled && (
               <span style={{ fontSize: '11px', background: 'var(--warning-bg)', color: 'var(--warning)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
                 🔊 Tap screen to enable audio alerts
               </span>
             )}
+            {onlineRiders.length > 0 && (
+              <span style={{ fontSize: '11px', background: '#e8f7ef', color: '#246b38', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+                🟢 {onlineRiders.length} rider{onlineRiders.length > 1 ? 's' : ''} online
+              </span>
+            )}
           </p>
         </div>
         <button 
-          onClick={() => {
-            sessionStorage.removeItem('hive_admin_authenticated');
-            setIsAuthenticated(false);
-            showToast('Logged out of Admin Panel', 'info');
-          }}
+          onClick={handleLogout}
           className="btn btn-secondary btn-sm btn-pill"
         >
           Logout
@@ -234,6 +362,14 @@ export default function AdminPage() {
           className={`category-tab ${activeTab === 'delivery' ? 'active' : ''}`}
         >
           Deliveries ({activeDeliveries.length})
+        </button>
+        <button 
+          onClick={() => setActiveTab('riders')}
+          className={`category-tab ${activeTab === 'riders' ? 'active' : ''}`}
+        >
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <Smartphone size={14} /> Riders ({riders.length})
+          </span>
         </button>
       </div>
 
@@ -308,6 +444,23 @@ export default function AdminPage() {
                     )}
                   </div>
 
+                  {/* Rider Assignment Badge */}
+                  {order.assignedRiderName && (
+                    <div className="rider-assignment-badge">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Truck size={14} />
+                        <span>Assigned to <strong>{order.assignedRiderName}</strong></span>
+                      </div>
+                      <button
+                        onClick={() => handleUnassignOrder(order.id)}
+                        className="btn-unassign"
+                        title="Unassign rider"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+
                   <div className="admin-order-actions">
                     <select
                       className="status-select"
@@ -321,10 +474,56 @@ export default function AdminPage() {
                       <option value="cancelled">Cancel Order</option>
                     </select>
 
+                    {/* Assign to Rider dropdown */}
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      {assigningOrderId === order.id ? (
+                        <div className="rider-assign-dropdown">
+                          <div className="rider-assign-header">
+                            <span style={{ fontWeight: 600, fontSize: '12px' }}>Assign to rider:</span>
+                            <button onClick={() => setAssigningOrderId(null)} className="btn-close-assign">✕</button>
+                          </div>
+                          {riders.length === 0 ? (
+                            <div className="rider-assign-empty">
+                              No rider devices registered yet. A rider needs to open <strong>/admin/rider</strong> on their phone first.
+                            </div>
+                          ) : (
+                            riders.map(rider => {
+                              const isOnline = rider.lastSeen && (Date.now() - new Date(rider.lastSeen).getTime() < 120000);
+                              return (
+                                <button
+                                  key={rider.id}
+                                  onClick={() => handleAssignToRider(order.id, rider.id, rider.deviceName)}
+                                  className="rider-assign-option"
+                                >
+                                  <span className={`rider-status-dot ${isOnline ? 'online' : 'offline'}`} />
+                                  <span>{rider.deviceName}</span>
+                                  <span className="text-xs text-secondary" style={{ marginLeft: 'auto' }}>
+                                    {isOnline ? 'Online' : 'Offline'}
+                                  </span>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setAssigningOrderId(order.id)}
+                          className="btn btn-secondary btn-sm"
+                          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                        >
+                          <Truck size={14} />
+                          {order.assignedRiderName ? 'Reassign' : 'Assign Rider'}
+                          <ChevronDown size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '8px' }}>
                     <Link 
                       href={`/admin/delivery/${order.id}`}
                       className="btn btn-secondary btn-sm"
-                      style={{ flex: 1, textAlign: 'center' }}
+                      style={{ width: '100%', textAlign: 'center', display: 'block' }}
                     >
                       🛵 Route Navigation
                     </Link>
@@ -410,6 +609,15 @@ export default function AdminPage() {
                   </div>
                   <p className="text-sm text-secondary mb-md">{order.address}</p>
                   
+                  {order.assignedRiderName && (
+                    <div className="rider-assignment-badge mb-sm">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Truck size={14} />
+                        <span>Rider: <strong>{order.assignedRiderName}</strong></span>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="flex gap-sm">
                     <Link 
                       href={`/admin/delivery/${order.id}`}
@@ -423,6 +631,80 @@ export default function AdminPage() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Tab Contents: Rider Devices Management */}
+      {activeTab === 'riders' && (
+        <div>
+          <div className="card mb-md">
+            <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Users size={18} /> Registered Rider Devices
+            </h3>
+            <p className="text-secondary text-sm mb-md">
+              Riders register by opening <strong style={{ color: 'var(--accent)' }}>/admin/rider</strong> on their mobile device and entering the admin password.
+            </p>
+
+            {riders.length === 0 ? (
+              <div className="text-center text-secondary" style={{ padding: '40px 0' }}>
+                <Smartphone size={40} style={{ opacity: 0.3, marginBottom: '12px' }} />
+                <p>No rider devices registered yet</p>
+                <p className="text-xs" style={{ marginTop: '4px' }}>Share the rider link with your delivery team</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-sm">
+                {riders.map(rider => {
+                  const isOnline = rider.lastSeen && (Date.now() - new Date(rider.lastSeen).getTime() < 120000);
+                  const assignedCount = orders.filter(o => o.assignedRiderId === rider.id).length;
+                  return (
+                    <div key={rider.id} className="rider-device-card">
+                      <div className="rider-device-info">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span className={`rider-status-dot-lg ${isOnline ? 'online' : 'offline'}`} />
+                          <div>
+                            <div className="rider-device-name">{rider.deviceName}</div>
+                            <div className="text-xs text-secondary">
+                              {isOnline ? 'Online now' : rider.lastSeen ? `Last seen ${new Date(rider.lastSeen).toLocaleTimeString()}` : 'Never connected'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="rider-device-stats">
+                          <span className="rider-stat-badge">{assignedCount} assigned</span>
+                          <button
+                            onClick={() => handleRemoveRider(rider.id)}
+                            className="btn btn-secondary btn-sm"
+                            style={{ fontSize: '11px', padding: '4px 10px' }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Quick link to copy */}
+          <div className="card">
+            <h3 className="section-title">Rider Setup Link</h3>
+            <p className="text-secondary text-sm mb-sm">Share this URL with your rider's mobile device:</p>
+            <div 
+              className="rider-link-box"
+              onClick={() => {
+                const url = `${window.location.origin}/admin/rider`;
+                navigator.clipboard.writeText(url).then(() => {
+                  showToast('Rider link copied!', 'success');
+                }).catch(() => {
+                  showToast('Failed to copy', 'error');
+                });
+              }}
+            >
+              <code>{typeof window !== 'undefined' ? `${window.location.origin}/admin/rider` : '/admin/rider'}</code>
+              <span className="text-xs" style={{ color: 'var(--accent)' }}>Tap to copy</span>
+            </div>
+          </div>
         </div>
       )}
     </div>

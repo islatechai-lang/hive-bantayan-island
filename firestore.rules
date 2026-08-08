@@ -44,5 +44,11 @@ service cloud.firestore {
       // Clients cannot delete orders
       allow delete: if false;
     }
+
+    // 4. Riders collection rules (delivery assignment system)
+    match /riders/{riderId} {
+      // Any authenticated user can read and manage rider device registrations
+      allow read, write: if isAuthenticated();
+    }
   }
 }
