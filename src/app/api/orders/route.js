@@ -104,16 +104,14 @@ export async function POST(request) {
       }
     }
 
-    // Write final order doc to Firestore
-    const finalOrderData = {
-      ...orderData,
-      status: finalStatus,
-      aiVerification: aiVerificationResult,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+    // Write final order doc to Firestore if not already passed from client
+    let orderId = orderData.orderId;
+    if (!orderId && adminDb) {
+      const docRef = await adminDb.collection('orders').add(finalOrderData);
+      orderId = docRef.id;
+    }
 
-    const docRef = await adminDb.collection('orders').add(finalOrderData);
+    const shortId = orderId ? orderId.slice(-6).toUpperCase() : 'NEW';
 
     // Send email alert to Admin via Resend API
     const resendApiKey = process.env.RESEND_API_KEY;
@@ -126,7 +124,7 @@ export async function POST(request) {
           .map(i => `<li><strong>${i.quantity}x</strong> ${i.name} — ₱${i.price * i.quantity}</li>`)
           .join('');
 
-        await fetch('https://api.resend.com/emails', {
+        const resendRes = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${resendApiKey}`,
@@ -135,27 +133,30 @@ export async function POST(request) {
           body: JSON.stringify({
             from: `Hive Orders <${fromEmail}>`,
             to: [notificationEmail],
-            subject: `🚨 NEW ORDER # ${docRef.id.slice(-6).toUpperCase()} - ₱${total} (${paymentMethod.toUpperCase()})`,
+            subject: `🚨 NEW ORDER #${shortId} - ₱${total} (${(paymentMethod || 'COD').toUpperCase()})`,
             html: `
-              <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-                <h2 style="color: #EB687E;">🍰 New Order Received on Hive Bantayan!</h2>
+              <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 12px;">
+                <h2 style="color: #EB687E; margin-top: 0;">🍰 New Order Received on Hive Bantayan!</h2>
+                <p><strong>Order ID:</strong> #${shortId}</p>
                 <p><strong>Customer Name:</strong> ${orderData.userName || 'Customer'}</p>
                 <p><strong>Phone:</strong> ${orderData.userPhone || 'N/A'}</p>
-                <p><strong>Delivery Address:</strong> ${orderData.address || 'N/A'}</p>
-                <p><strong>Payment Method:</strong> ${paymentMethod.toUpperCase()}</p>
-                <p><strong>Total Amount:</strong> ₱${total}</p>
+                <p><strong>Delivery Address:</strong> ${orderData.address || 'Live GPS Location'}</p>
+                <p><strong>Payment Method:</strong> ${(paymentMethod || 'COD').toUpperCase()}</p>
+                <p><strong>Total Amount:</strong> <span style="font-size: 1.2rem; color: #EB687E; font-weight: bold;">₱${total}</span></p>
                 ${orderData.riderNote ? `<p><strong>Note for Rider:</strong> <em>${orderData.riderNote}</em></p>` : ''}
                 
-                <h3>Items:</h3>
-                <ul>${itemsListHtml}</ul>
+                <h3 style="border-bottom: 1px solid #ddd; padding-bottom: 8px;">Items Ordered:</h3>
+                <ul style="line-height: 1.6;">${itemsListHtml}</ul>
 
                 <br/>
-                <a href="https://hive-bantayan-8598e.web.app/admin" style="background: #EB687E; color: white; padding: 10px 20px; text-decoration: none; border-radius: 20px; font-weight: bold;">Open Admin Dashboard</a>
+                <a href="https://hive-bantayan-8598e.web.app/admin" style="display: inline-block; background: #EB687E; color: white; padding: 12px 24px; text-decoration: none; border-radius: 20px; font-weight: bold;">Open Admin Dashboard 🛵</a>
               </div>
             `
           })
         });
-        console.log('Resend email notification sent successfully to:', notificationEmail);
+
+        const resendData = await resendRes.json();
+        console.log('Resend email API response:', resendData);
       } catch (emailErr) {
         console.error('Failed to send Resend email alert:', emailErr);
       }

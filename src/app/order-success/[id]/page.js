@@ -51,22 +51,11 @@ export default function OrderSuccessPage() {
   return (
     <div className="page">
       <div className="text-center mb-lg">
-        {/* Elegant Stationary Motorcycle Badge */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
-          <div style={{
-            width: '88px',
-            height: '88px',
-            borderRadius: '50%',
-            background: 'var(--card-bg-accent, #fff0f3)',
-            border: '2px solid var(--accent, #EB687E)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 8px 24px rgba(235,104,126,0.2)',
-            fontSize: '3rem'
-          }}>
-            🛵
-          </div>
+        {/* Clean Standalone Motorcycle with Speed Trail Emoji */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
+          <span style={{ fontSize: '3.6rem', display: 'inline-block', transform: 'scaleX(-1)' }} title="Rider on the way">
+            💨🛵
+          </span>
         </div>
 
         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 0.5rem' }}>

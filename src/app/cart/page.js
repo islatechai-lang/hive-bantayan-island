@@ -204,6 +204,16 @@ export default function CartPage() {
         console.error('Failed to update product stock counts:', stockErr);
       }
 
+      // Trigger email alert to Admin via Resend API (non-blocking)
+      fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: docRef.id,
+          ...orderData
+        })
+      }).catch(err => console.warn('Email dispatch failed (non-blocking):', err));
+
       // For GCash, kick off AI receipt verification in the background (fire-and-forget)
       if (paymentMethod === 'gcash' && receiptUrl) {
         fetch('/api/verify-receipt', {
