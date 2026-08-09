@@ -120,6 +120,8 @@ export async function POST(request) {
           .map(i => `<li><strong>${i.quantity}x</strong> ${i.name} — ₱${i.price * i.quantity}</li>`)
           .join('');
 
+        console.log(`Sending Resend email to ${notificationEmail} from ${fromEmail}...`);
+
         const resendRes = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
@@ -152,10 +154,12 @@ export async function POST(request) {
         });
 
         const resendData = await resendRes.json();
-        console.log('Resend email API response:', resendData);
+        console.log('Resend email API response status:', resendRes.status, resendData);
       } catch (emailErr) {
         console.error('Failed to send Resend email alert:', emailErr);
       }
+    } else {
+      console.warn('RESEND_API_KEY is not set in environment variables. Email notification skipped.');
     }
 
     return NextResponse.json({
