@@ -2,6 +2,18 @@
 // When running in a Median.co native app, the native OneSignal SDK handles push
 // When running in browser, we gracefully degrade (no-op)
 
+if (typeof window !== 'undefined') {
+  // Global hook for Median JS Bridge notification opened/tapped event
+  window.median_onesignal_opened = function(data) {
+    console.log('🔔 OneSignal push tapped by user:', data);
+    const target = data?.url || data?.web_url || data?.app_url || data?.targetUrl;
+    if (target) {
+      window.location.href = target;
+    }
+  };
+  window.gonative_onesignal_opened = window.median_onesignal_opened;
+}
+
 export function isMedianApp() {
   if (typeof window === 'undefined') return false;
   return !!(window.median || window.gonative);
@@ -125,10 +137,19 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
   const apiKey = rawKey.trim();
   const appId = rawAppId.trim();
 
+  const targetUrl = url || 'https://hive-bantayan-island.vercel.app/orders';
+
   const payload = {
     app_id: appId,
     headings: { en: heading },
     contents: { en: content },
+    url: targetUrl,
+    web_url: targetUrl,
+    app_url: targetUrl,
+    data: {
+      url: targetUrl,
+      targetUrl: targetUrl,
+    },
     ...(sendToAll || !externalUserIds || externalUserIds.length === 0 ? {
       included_segments: ['Subscribed Users'],
     } : {
@@ -139,7 +160,6 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
       channel_for_external_user_ids: 'push',
     }),
     target_channel: 'push',
-    ...(url && { url }),
   };
 
   const endpoints = [
@@ -188,9 +208,12 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
                 app_id: appId,
                 headings: { en: heading },
                 contents: { en: content },
+                url: targetUrl,
+                web_url: targetUrl,
+                app_url: targetUrl,
+                data: { url: targetUrl, targetUrl },
                 included_segments: ['Subscribed Users'],
                 target_channel: 'push',
-                ...(url && { url }),
               }),
             });
             const fallbackData = await fallbackRes.json();

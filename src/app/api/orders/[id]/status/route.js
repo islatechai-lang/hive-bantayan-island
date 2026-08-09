@@ -97,7 +97,7 @@ export async function PATCH(request, { params }) {
           heading: pushHeading,
           content: pushContent,
           externalUserIds: [orderData.userId],
-          url: 'https://bantayan-hive-island.vercel.app/orders'
+          url: `https://hive-bantayan-island.vercel.app/order-success/${id}`
         });
         console.log(`Push notification sent to user: ${orderData.userId}`, pushResult);
       } catch (pushError) {
