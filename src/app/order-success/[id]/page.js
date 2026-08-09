@@ -6,7 +6,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { useParams, useRouter } from 'next/navigation';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import StatusBadge from '../../../components/StatusBadge';
-import { ShoppingBag, ArrowRight, ShieldCheck, HelpCircle } from 'lucide-react';
+import { ShoppingBag, ArrowRight, ShieldCheck, HelpCircle, XCircle } from 'lucide-react';
 
 export default function OrderSuccessPage() {
   const params = useParams();
@@ -22,28 +22,20 @@ export default function OrderSuccessPage() {
         setOrder({ id: docSnap.id, ...docSnap.data() });
       }
       setLoading(false);
-    }, (error) => {
-      console.error('Error fetching order:', error);
-      setLoading(false);
     });
 
     return () => unsubscribe();
   }, [params.id]);
 
   if (loading) {
-    return <LoadingSpinner fullPage={true} text="Preparing your receipt..." />;
+    return <LoadingSpinner fullPage={true} text="Fetching order details..." />;
   }
 
   if (!order) {
     return (
-      <div className="page text-center">
-        <div style={{ padding: '80px 0' }}>
-          <h2>Order Not Found</h2>
-          <p className="text-secondary">We couldn't retrieve the details of this order.</p>
-          <button onClick={() => router.push('/')} className="btn btn-primary btn-pill mt-md">
-            Go to Menu
-          </button>
-        </div>
+      <div className="page text-center py-xl">
+        <h2>Order Not Found</h2>
+        <button onClick={() => router.push('/')} className="btn btn-primary mt-md">Go to Home</button>
       </div>
     );
   }
@@ -51,7 +43,7 @@ export default function OrderSuccessPage() {
   return (
     <div className="page">
       <div className="text-center mb-lg">
-        {/* Clean Standalone Motorcycle with Speed Trail Emoji */}
+        {/* Clean Standalone Motorcycle Header */}
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '2px', marginBottom: '0.75rem' }}>
           <span style={{ fontSize: '3.6rem', lineHeight: 1 }} title="Rider on the way">
             🛵
@@ -62,41 +54,53 @@ export default function OrderSuccessPage() {
         </div>
 
         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 0.5rem' }}>
-          Rider is on its way!
+          {order.status === 'cancelled' ? 'Order Cancelled' : 'Rider is on its way!'}
         </h1>
         <p className="text-secondary" style={{ fontSize: '1rem', margin: 0 }}>
-          Your order has been received and your rider will arrive in <strong style={{ color: 'var(--accent)' }}>10-20 mins</strong>!
+          {order.status === 'cancelled'
+            ? 'This order has been cancelled by admin.'
+            : 'Your order has been received and your rider will arrive in 10-20 mins!'}
         </p>
       </div>
 
-      {/* GCash Payment Review Notice */}
+      {/* GCash Payment Notice */}
       {order.paymentMethod === 'gcash' && (
         <div 
           className="card" 
           style={{ 
-            background: order.status === 'preparing' ? '#f0fbf5' : '#fdf8e2', 
-            border: order.status === 'preparing' ? '1px solid #c3e6cb' : '1px solid #fbeeb5', 
+            background: order.status === 'cancelled' ? '#fdecec' : (order.status === 'pending' ? '#fdf8e2' : '#f0fbf5'), 
+            border: order.status === 'cancelled' ? '1px solid #f8c0c0' : (order.status === 'pending' ? '1px solid #fbeeb5' : '1px solid #c3e6cb'), 
             marginBottom: '1.5rem',
             padding: '1rem' 
           }}
         >
-          {order.status === 'preparing' ? (
+          {order.status === 'cancelled' ? (
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-              <ShieldCheck className="text-success" size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <XCircle style={{ color: '#c0392b' }} size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
               <div>
-                <strong style={{ color: '#155724', fontSize: '14px', display: 'block' }}>Payment Confirmed</strong>
-                <span style={{ color: '#246b38', fontSize: '12px', lineHeight: 1.4, display: 'block', marginTop: '2px' }}>
-                  Your GCash payment receipt has been confirmed! Your order is now being prepared.
+                <strong style={{ color: '#c0392b', fontSize: '14px', display: 'block' }}>Payment Rejected / Cancelled</strong>
+                <span style={{ color: '#900c3f', fontSize: '12px', lineHeight: 1.4, display: 'block', marginTop: '2px' }}>
+                  This order was cancelled. If you believe this was an error, please contact store support.
+                </span>
+              </div>
+            </div>
+          ) : order.status === 'pending' ? (
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+              <HelpCircle style={{ color: '#856404' }} size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <strong style={{ color: '#856404', fontSize: '14px', display: 'block' }}>Payment Under Review</strong>
+                <span style={{ color: '#997305', fontSize: '12px', lineHeight: 1.4, display: 'block', marginTop: '2px' }}>
+                  Receipt received! We will confirm your order shortly.
                 </span>
               </div>
             </div>
           ) : (
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-              <HelpCircle style={{ color: '#856404' }} size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <ShieldCheck className="text-success" size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
               <div>
-                <strong style={{ color: '#856404', fontSize: '14px', display: 'block' }}>Payment Awaiting Admin Review</strong>
-                <span style={{ color: '#997305', fontSize: '12px', lineHeight: 1.4, display: 'block', marginTop: '2px' }}>
-                  Your GCash receipt has been received! Our admin will review and confirm your payment shortly.
+                <strong style={{ color: '#155724', fontSize: '14px', display: 'block' }}>Payment Confirmed</strong>
+                <span style={{ color: '#246b38', fontSize: '12px', lineHeight: 1.4, display: 'block', marginTop: '2px' }}>
+                  Your GCash payment receipt was confirmed! Your order is being processed.
                 </span>
               </div>
             </div>
