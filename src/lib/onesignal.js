@@ -125,7 +125,7 @@ export async function setUserTags(tags) {
 }
 
 // Fast Server-Side Push Dispatcher via OneSignal REST API
-export async function sendPushNotification({ heading, content, externalUserIds, url, sendToAll }) {
+export async function sendPushNotification({ heading, content, url }) {
   const rawKey = process.env.ONESIGNAL_API_KEY;
   const rawAppId = process.env.ONESIGNAL_APP_ID || process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
 
@@ -138,74 +138,38 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
   const appId = rawAppId.trim();
   const targetUrl = url || 'https://hive-bantayan-island.vercel.app/orders';
 
+  // Always send to all subscribed devices — individual external_id targeting
+  // doesn't work reliably with Median.co native bridge registration
   const payload = {
     app_id: appId,
     headings: { en: heading },
     contents: { en: content },
+    included_segments: ['Subscribed Users'],
     url: targetUrl,
     web_url: targetUrl,
     app_url: targetUrl,
     data: { url: targetUrl, targetUrl },
-    ...(sendToAll || !externalUserIds || externalUserIds.length === 0 ? {
-      included_segments: ['Subscribed Users'],
-    } : {
-      include_external_user_ids: externalUserIds,
-      include_aliases: {
-        external_id: externalUserIds,
-      },
-      channel_for_external_user_ids: 'push',
-    }),
     target_channel: 'push',
   };
 
   const endpoint = 'https://api.onesignal.com/notifications';
-  const headers = {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Authorization': `Bearer ${apiKey}`,
-  };
 
   try {
     const res = await fetch(endpoint, {
       method: 'POST',
-      headers,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Authorization': `Bearer ${apiKey}`,
+      },
       body: JSON.stringify(payload),
     });
 
     const data = await res.json();
-    console.log(`OneSignal direct push response:`, res.status, data);
-
-    // If targeted user isn't directly subscribed in OneSignal yet, trigger segment fallback so push still arrives!
-    if (res.ok && data?.errors && (data.errors.includes('All included players are not subscribed') || data.errors.includes('All included players are invalid')) && externalUserIds && externalUserIds.length > 0) {
-      console.warn('⚠️ Target user ID not directly subscribed in OneSignal. Retrying with Subscribed Users segment...');
-      const fallbackRes = await fetch(endpoint, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          app_id: appId,
-          headings: { en: heading },
-          contents: { en: content },
-          url: targetUrl,
-          web_url: targetUrl,
-          app_url: targetUrl,
-          data: { url: targetUrl, targetUrl },
-          included_segments: ['Subscribed Users'],
-          target_channel: 'push',
-        }),
-      });
-      const fallbackData = await fallbackRes.json();
-      return {
-        status: fallbackRes.status,
-        ok: fallbackRes.ok,
-        endpoint,
-        data: fallbackData,
-        fallbackSegmentUsed: true,
-      };
-    }
+    console.log('OneSignal push response:', res.status, data);
 
     return {
       status: res.status,
       ok: res.ok,
-      endpoint,
       data,
     };
   } catch (err) {
@@ -213,3 +177,4 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
     return { error: err.message || String(err) };
   }
 }
+
