@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { sendPushNotification } from '../../../../lib/onesignal';
+import { sendPushNotification } from '@/lib/onesignal';
 
 function getAdminDb() {
   const key = process.env.FIREBASE_PRIVATE_KEY;
