@@ -113,7 +113,7 @@ export async function setUserTags(tags) {
 }
 
 // Server-side: send push notification via OneSignal REST API
-export async function sendPushNotification({ heading, content, externalUserIds, url }) {
+export async function sendPushNotification({ heading, content, externalUserIds, url, sendToAll }) {
   const rawKey = process.env.ONESIGNAL_API_KEY;
   const rawAppId = process.env.ONESIGNAL_APP_ID || process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
 
@@ -129,55 +129,58 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
     app_id: appId,
     headings: { en: heading },
     contents: { en: content },
-    ...(externalUserIds && externalUserIds.length > 0 ? {
+    ...(sendToAll || !externalUserIds || externalUserIds.length === 0 ? {
+      included_segments: ['Subscribed Users'],
+    } : {
       include_external_user_ids: externalUserIds,
       include_aliases: {
         external_id: externalUserIds,
       },
       channel_for_external_user_ids: 'push',
-    } : {
-      included_segments: ['Subscribed Users'],
     }),
     target_channel: 'push',
     ...(url && { url }),
   };
 
-  try {
-    // Attempt 1: Authorization: Key header format
-    let response = await fetch('https://onesignal.com/api/v1/notifications', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Authorization': `Key ${apiKey}`,
-      },
-      body: JSON.stringify(payload),
-    });
+  const authAttempts = [
+    { name: 'Key', headers: { 'Authorization': `Key ${apiKey}` } },
+    { name: 'Bearer', headers: { 'Authorization': `Bearer ${apiKey}` } },
+    { name: 'Basic', headers: { 'Authorization': `Basic ${apiKey}` } },
+    { name: 'Body_api_key', bodyExtra: { api_key: apiKey } },
+    { name: 'Body_app_key', bodyExtra: { app_key: apiKey } }
+  ];
 
-    let data = await response.json();
-    console.log('OneSignal push API (Key auth) status:', response.status, data);
+  let lastResult = null;
 
-    // Attempt 2: Authorization: Basic header fallback if Key header is rejected
-    if (!response.ok && (response.status === 401 || data?.errors?.includes?.('Invalid authorization header'))) {
-      console.log('Retrying OneSignal push API with Basic auth header...');
-      response = await fetch('https://onesignal.com/api/v1/notifications', {
+  for (const attempt of authAttempts) {
+    try {
+      const currentPayload = attempt.bodyExtra ? { ...payload, ...attempt.bodyExtra } : payload;
+      const res = await fetch('https://onesignal.com/api/v1/notifications', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
-          'Authorization': `Basic ${apiKey}`,
+          ...(attempt.headers || {})
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(currentPayload)
       });
-      data = await response.json();
-      console.log('OneSignal push API (Basic auth) status:', response.status, data);
-    }
 
-    return {
-      status: response.status,
-      ok: response.ok,
-      data,
-    };
-  } catch (err) {
-    console.error('Error sending OneSignal push notification:', err);
-    return { error: err.message || String(err) };
+      const data = await res.json();
+      console.log(`OneSignal auth attempt (${attempt.name}):`, res.status, data);
+
+      lastResult = {
+        status: res.status,
+        ok: res.ok,
+        authMethodUsed: attempt.name,
+        data
+      };
+
+      if (res.ok && !data.errors) {
+        return lastResult;
+      }
+    } catch (e) {
+      console.warn(`OneSignal auth attempt (${attempt.name}) failed:`, e);
+    }
   }
+
+  return lastResult || { error: 'All authentication attempts failed' };
 }
