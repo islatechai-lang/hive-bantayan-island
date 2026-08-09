@@ -62,15 +62,15 @@ export async function PATCH(request, { params }) {
     // Notify customer via OneSignal
     let pushHeading = 'Order Update';
     let pushContent = '';
+    const orderTotalFormatted = orderData.total ? `₱${orderData.total}` : '';
 
     switch (status) {
       case 'confirmed':
-        pushHeading = 'Order Confirmed! 🎉';
-        pushContent = `Hi ${orderData.userName}, your order has been accepted and is confirmed.`;
-        break;
       case 'preparing':
-        pushHeading = 'Preparing Your Sweet Treats! 👩‍🍳';
-        pushContent = 'Our chefs are crafting your delicious order right now.';
+        pushHeading = 'Payment Confirmed! 💳';
+        pushContent = orderData.paymentMethod === 'gcash'
+          ? `Your payment of ${orderTotalFormatted} has been confirmed! Your order is now being prepared.`
+          : `Your order of ${orderTotalFormatted} has been confirmed and is now being prepared.`;
         break;
       case 'out_for_delivery':
         pushHeading = 'Out for Delivery 🛵';
@@ -81,8 +81,10 @@ export async function PATCH(request, { params }) {
         pushContent = 'Thank you for ordering with Bantayan Hive. Have a sweet day!';
         break;
       case 'cancelled':
-        pushHeading = 'Order Cancelled';
-        pushContent = 'Your order has been cancelled. Reach out if you have any questions.';
+        pushHeading = 'Order Cancelled ❌';
+        pushContent = orderData.paymentMethod === 'gcash'
+          ? `Your order of ${orderTotalFormatted} was cancelled. If you sent a payment, please contact support.`
+          : `Your order of ${orderTotalFormatted} has been cancelled.`;
         break;
       default:
         pushContent = `Your order status changed to ${status}`;
