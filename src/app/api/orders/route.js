@@ -126,6 +126,13 @@ export async function POST(request) {
           .map(i => `<li><strong>${i.quantity}x</strong> ${i.name} — ₱${i.price * i.quantity}</li>`)
           .join('');
 
+        const orderTimeStr = new Date().toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'Asia/Manila'
+        });
+
         const resendFrom = fromEmail.includes('<') ? fromEmail : `Bantayan Hive Orders <${fromEmail}>`;
 
         console.log(`Sending Resend email to ${notificationEmail} from ${resendFrom}...`);
@@ -139,7 +146,7 @@ export async function POST(request) {
           body: JSON.stringify({
             from: resendFrom,
             to: [notificationEmail],
-            subject: `🚨 NEW ORDER #${shortId} - ₱${total || 0} (${(paymentMethod || 'COD').toUpperCase()})`,
+            subject: `🚨 NEW ORDER (${orderTimeStr}) - ₱${total || 0} (${(paymentMethod || 'COD').toUpperCase()})`,
             html: `
               <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 12px;">
                 <h2 style="color: #EB687E; margin-top: 0;">🍰 New Order Received on Bantayan Hive!</h2>
