@@ -982,6 +982,10 @@ export default function AdminPage() {
               <code>{typeof window !== 'undefined' ? `${window.location.origin}/admin/rider` : '/admin/rider'}</code>
               <span className="text-xs" style={{ color: 'var(--accent)' }}>Tap to copy</span>
             </div>
+          </div>
+        </div>
+      )}
+
       {/* GCash Receipt Lightbox Modal for High Resolution Inspection */}
       {viewingReceiptUrl && (
         <div 
