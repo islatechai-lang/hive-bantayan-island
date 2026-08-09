@@ -54,7 +54,7 @@ export async function setUserExternalId(userId) {
     const bridge = getMedianBridge();
     if (bridge?.onesignal) {
       try {
-        console.log('🔗 Setting OneSignal user ID on Median bridge:', userId);
+        console.log('🔗 Setting OneSignal user ID & tags on Median bridge:', userId);
         
         // 1. Median v5 SDK login method
         if (typeof bridge.onesignal.login === 'function') {
@@ -76,6 +76,14 @@ export async function setUserExternalId(userId) {
         if (bridge.onesignal.user && typeof bridge.onesignal.user.addAlias === 'function') {
           try { bridge.onesignal.user.addAlias({ label: 'external_id', id: userId }); } catch (_) {}
         }
+
+        // 5. OneSignal Tags (user_id) for filter targeting fallback
+        try {
+          if (typeof bridge.onesignal.sendTag === 'function') bridge.onesignal.sendTag('user_id', userId);
+          if (typeof bridge.onesignal.pushTags === 'function') bridge.onesignal.pushTags({ user_id: userId });
+          if (bridge.onesignal.user && typeof bridge.onesignal.user.addTag === 'function') bridge.onesignal.user.addTag('user_id', userId);
+          if (bridge.onesignal.user && typeof bridge.onesignal.user.addTags === 'function') bridge.onesignal.user.addTags({ user_id: userId });
+        } catch (_) {}
 
         return true;
       } catch (e) {
@@ -124,7 +132,7 @@ export async function setUserTags(tags) {
   return false;
 }
 
-// Server-side: send push notification via OneSignal REST API specifically to target user
+// Server-side: send push notification via OneSignal REST API targeted specifically to user
 export async function sendPushNotification({ heading, content, externalUserIds, url, sendToAll }) {
   const rawKey = process.env.ONESIGNAL_API_KEY;
   const rawAppId = process.env.ONESIGNAL_APP_ID || process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
@@ -136,84 +144,128 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
 
   const apiKey = rawKey.trim();
   const appId = rawAppId.trim();
-
   const targetUrl = url || 'https://hive-bantayan-island.vercel.app/orders';
-
-  const payload = {
-    app_id: appId,
-    headings: { en: heading },
-    contents: { en: content },
-    url: targetUrl,
-    web_url: targetUrl,
-    app_url: targetUrl,
-    data: {
-      url: targetUrl,
-      targetUrl: targetUrl,
-    },
-    ...(sendToAll || !externalUserIds || externalUserIds.length === 0 ? {
-      included_segments: ['Subscribed Users'],
-    } : {
-      include_external_user_ids: externalUserIds,
-      include_aliases: {
-        external_id: externalUserIds,
-      },
-      channel_for_external_user_ids: 'push',
-    }),
-    target_channel: 'push',
-  };
-
   const endpoint = 'https://api.onesignal.com/notifications';
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
     'Authorization': `Bearer ${apiKey}`,
   };
 
-  try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-    });
+  const targetUserId = (externalUserIds && externalUserIds.length > 0) ? externalUserIds[0] : null;
 
-    const data = await res.json();
-    console.log(`OneSignal direct push response:`, res.status, data);
-
-    // If targeted user isn't directly subscribed with external_id yet, fallback to Subscribed Users segment
-    if (res.ok && data?.errors && (data.errors.includes('All included players are not subscribed') || data.errors.includes('All included players are invalid')) && externalUserIds && externalUserIds.length > 0) {
-      console.warn('⚠️ User ID not directly subscribed in OneSignal yet. Retrying with Subscribed Users segment...');
-      const fallbackRes = await fetch(endpoint, {
+  // STEP 1: If sendToAll is explicitly requested or no targetUserId, send to Subscribed Users segment
+  if (sendToAll || !targetUserId) {
+    try {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers,
         body: JSON.stringify({
           app_id: appId,
           headings: { en: heading },
           contents: { en: content },
+          included_segments: ['Subscribed Users'],
           url: targetUrl,
           web_url: targetUrl,
           app_url: targetUrl,
           data: { url: targetUrl, targetUrl },
-          included_segments: ['Subscribed Users'],
           target_channel: 'push',
         }),
       });
-      const fallbackData = await fallbackRes.json();
-      return {
-        status: fallbackRes.status,
-        ok: fallbackRes.ok,
-        endpoint,
-        data: fallbackData,
-        fallbackSegmentUsed: true,
-      };
+      const data = await res.json();
+      return { status: res.status, ok: res.ok, data };
+    } catch (err) {
+      return { error: err.message || String(err) };
+    }
+  }
+
+  // STEP 2: Try targeted delivery via external_id alias / include_external_user_ids
+  try {
+    const payloadExternalId = {
+      app_id: appId,
+      headings: { en: heading },
+      contents: { en: content },
+      include_aliases: {
+        external_id: [targetUserId],
+      },
+      include_external_user_ids: [targetUserId],
+      url: targetUrl,
+      web_url: targetUrl,
+      app_url: targetUrl,
+      data: { url: targetUrl, targetUrl },
+      target_channel: 'push',
+    };
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payloadExternalId),
+    });
+
+    const data = await res.json();
+    console.log(`OneSignal external_id push attempt result:`, res.status, data);
+
+    const recipients = data?.recipients || 0;
+    if (res.ok && recipients > 0) {
+      return { status: res.status, ok: true, method: 'external_id', recipients, data };
     }
 
-    return {
-      status: res.status,
-      ok: res.ok,
-      endpoint,
-      data,
+    // STEP 3: If external_id matched 0 recipients, try tag targeting (user_id tag)
+    console.warn(`⚠️ external_id '${targetUserId}' reached 0 recipients. Trying user_id tag filter...`);
+    const payloadTag = {
+      app_id: appId,
+      headings: { en: heading },
+      contents: { en: content },
+      filters: [
+        { field: 'tag', key: 'user_id', relation: '=', value: targetUserId }
+      ],
+      url: targetUrl,
+      web_url: targetUrl,
+      app_url: targetUrl,
+      data: { url: targetUrl, targetUrl },
+      target_channel: 'push',
     };
-  } catch (e) {
-    console.error('OneSignal push notification error:', e);
-    return { error: e.message || String(e) };
+
+    const tagRes = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payloadTag),
+    });
+
+    const tagData = await tagRes.json();
+    console.log(`OneSignal tag filter push attempt result:`, tagRes.status, tagData);
+
+    const tagRecipients = tagData?.recipients || 0;
+    if (tagRes.ok && tagRecipients > 0) {
+      return { status: tagRes.status, ok: true, method: 'tag_filter', recipients: tagRecipients, data: tagData };
+    }
+
+    // STEP 4: Fallback to Subscribed Users segment if device registration hasn't attached user ID yet
+    console.warn(`⚠️ Target user ID '${targetUserId}' not indexed in OneSignal yet. Triggering segment fallback...`);
+    const fallbackRes = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        app_id: appId,
+        headings: { en: heading },
+        contents: { en: content },
+        included_segments: ['Subscribed Users'],
+        url: targetUrl,
+        web_url: targetUrl,
+        app_url: targetUrl,
+        data: { url: targetUrl, targetUrl },
+        target_channel: 'push',
+      }),
+    });
+    const fallbackData = await fallbackRes.json();
+    return {
+      status: fallbackRes.status,
+      ok: fallbackRes.ok,
+      method: 'segment_fallback',
+      recipients: fallbackData?.recipients || 0,
+      data: fallbackData,
+    };
+  } catch (err) {
+    console.error('OneSignal targeted push error:', err);
+    return { error: err.message || String(err) };
   }
 }
