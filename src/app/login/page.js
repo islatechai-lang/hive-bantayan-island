@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useToast } from '../../contexts/ToastContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import PolicyModal from '../../components/PolicyModal';
 import { Phone, UserCircle } from 'lucide-react';
 import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -21,6 +22,7 @@ export default function LoginPage() {
   const [verifyingOTP, setVerifyingOTP] = useState(false);
   const [fullName, setFullName] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const [policyType, setPolicyType] = useState(null); // 'terms' | 'privacy' | null
   
   const otpRefs = useRef([]);
 
@@ -341,8 +343,33 @@ export default function LoginPage() {
         )}
       </div>
       
+      {/* Terms & Privacy Policy Consent Footer */}
+      <p className="text-center text-xs text-secondary mt-lg mb-md" style={{ maxWidth: '320px', lineHeight: 1.5, opacity: 0.85 }}>
+        By continuing, you agree to Bantayan Hive's{' '}
+        <button 
+          type="button" 
+          onClick={() => setPolicyType('terms')} 
+          style={{ color: 'var(--accent)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit', fontWeight: 600 }}
+        >
+          Terms of Service
+        </button>
+        {' & '}
+        <button 
+          type="button" 
+          onClick={() => setPolicyType('privacy')} 
+          style={{ color: 'var(--accent)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit', fontWeight: 600 }}
+        >
+          Privacy Policy
+        </button>.
+      </p>
+
       {/* Invisible reCAPTCHA container */}
       <div id="recaptcha-container"></div>
+
+      {/* Policy Modal */}
+      {policyType && (
+        <PolicyModal type={policyType} onClose={() => setPolicyType(null)} />
+      )}
     </div>
   );
 }

@@ -5,7 +5,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { LogOut, ChevronRight, Truck, Phone } from 'lucide-react';
+import PolicyModal from '../../components/PolicyModal';
+import { LogOut, ChevronRight, ChevronLeft, Truck, Phone } from 'lucide-react';
 
 export default function ProfilePage() {
   const { user, dbUser, signOut, updateUserName } = useAuth();
@@ -14,6 +15,7 @@ export default function ProfilePage() {
   
   const [name, setName] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [policyType, setPolicyType] = useState(null); // 'terms' | 'privacy' | null
 
   useEffect(() => {
     if (!user) {
@@ -61,8 +63,15 @@ export default function ProfilePage() {
 
   return (
     <div className="page">
-      <div className="page-header" style={{ justifyContent: 'center', textAlign: 'center', marginBottom: '2rem' }}>
-        <h1 className="page-title">Profile Settings</h1>
+      <div className="page-header" style={{ alignItems: 'center', marginBottom: '2rem' }}>
+        <button 
+          onClick={() => router.push('/')} 
+          className="btn btn-secondary btn-sm"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.5rem 0.8rem', background: '#f5f5f5', border: 'none', borderRadius: '20px' }}
+        >
+          <ChevronLeft size={16} /> Menu
+        </button>
+        <h1 className="page-title" style={{ flex: 1, textAlign: 'center', marginRight: '64px' }}>Profile Settings</h1>
       </div>
 
       <div className="profile-avatar">
@@ -138,6 +147,33 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Terms & Privacy Policy Footer */}
+      <div className="text-center text-xs text-secondary mt-xl pb-lg" style={{ opacity: 0.85 }}>
+        <p style={{ margin: '0 0 4px' }}>Bantayan Hive v1.0.0</p>
+        <p style={{ margin: 0 }}>
+          <button 
+            type="button" 
+            onClick={() => setPolicyType('terms')} 
+            style={{ color: 'var(--accent)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}
+          >
+            Terms of Service
+          </button>
+          {' • '}
+          <button 
+            type="button" 
+            onClick={() => setPolicyType('privacy')} 
+            style={{ color: 'var(--accent)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0, font: 'inherit' }}
+          >
+            Privacy Policy
+          </button>
+        </p>
+      </div>
+
+      {/* Policy Modal */}
+      {policyType && (
+        <PolicyModal type={policyType} onClose={() => setPolicyType(null)} />
+      )}
     </div>
   );
 }
