@@ -620,6 +620,7 @@ export default function AdminPage() {
                       )}
                     </div>
                   </div>
+                </div>
 
                   <div style={{ marginTop: '8px' }}>
                     <Link 
