@@ -27,8 +27,35 @@ export default function AdminPage() {
   const [statusFilter, setStatusFilter] = useState('preparing');
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [assigningOrderId, setAssigningOrderId] = useState(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState(null);
+  const [testingPush, setTestingPush] = useState(false);
 
   const initialLoadRef = useRef(true);
+
+  // Test OneSignal Push notification endpoint
+  const handleTestPushNotification = async () => {
+    setTestingPush(true);
+    try {
+      const res = await fetch('/api/onesignal/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sendToAll: true })
+      });
+      const data = await res.json();
+      console.log('⚡ Test Push API Result:', data);
+      
+      const recipients = data.pushResult?.data?.recipients || 0;
+      const ok = data.pushResult?.ok;
+      const status = data.pushResult?.status;
+      const errorMsg = data.pushResult?.data?.errors ? JSON.stringify(data.pushResult.data.errors) : (data.error || 'None');
+
+      alert(`⚡ OneSignal Push Test Result:\n\nHTTP Status: ${status || 'N/A'}\nAPI Success: ${ok ? 'YES' : 'NO'}\nRecipients Reached: ${recipients}\nErrors: ${errorMsg}\n\nFull Diagnostic Payload:\n${JSON.stringify(data, null, 2)}`);
+    } catch (e) {
+      alert(`Test push failed: ${e.message}`);
+    } finally {
+      setTestingPush(false);
+    }
+  };
 
   // Auto-enable audio on first click on document without re-triggering sound logic unexpectedly
   useEffect(() => {
@@ -172,6 +199,7 @@ export default function AdminPage() {
   };
 
   const handleStatusChange = async (orderId, newStatus) => {
+    setUpdatingStatusId(orderId);
     try {
       // Optimistic status update locally
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
@@ -193,14 +221,17 @@ export default function AdminPage() {
 
       const recipients = data.pushResult?.data?.recipients;
       if (recipients === 0) {
-        console.warn('⚠️ Push notification delivered to 0 recipients. The customer app device may not have registered its external User ID with OneSignal yet.');
-        showToast(`Status updated (Push: 0 devices reached)`, 'info');
+        showToast(`Status updated to ${newStatus.replace('_', ' ')} (0 devices registered with OneSignal yet)`, 'info');
+      } else if (recipients > 0) {
+        showToast(`Status updated! Push notification sent to ${recipients} device(s)`, 'success');
       } else {
         showToast(`Order status updated to ${newStatus.replace('_', ' ')}`, 'success');
       }
     } catch (error) {
       console.error('Status update error:', error);
-      showToast('Failed to update status', 'error');
+      showToast('Failed to update status: ' + error.message, 'error');
+    } finally {
+      setUpdatingStatusId(null);
     }
   };
 
@@ -351,12 +382,22 @@ export default function AdminPage() {
             )}
           </p>
         </div>
-        <button 
-          onClick={handleLogout}
-          className="btn btn-secondary btn-sm btn-pill"
-        >
-          Logout
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            onClick={handleTestPushNotification}
+            disabled={testingPush}
+            className="btn btn-sm btn-pill"
+            style={{ background: '#fff', border: '1px solid var(--accent)', color: 'var(--accent)', fontWeight: 600 }}
+          >
+            {testingPush ? 'Testing...' : '⚡ Test OneSignal Push'}
+          </button>
+          <button 
+            onClick={handleLogout}
+            className="btn btn-secondary btn-sm btn-pill"
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -477,17 +518,63 @@ export default function AdminPage() {
                     </div>
                   )}
 
-                  <div className="admin-order-actions">
-                    <select
-                      className="status-select"
-                      value={order.status}
-                      onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                    >
-                      <option value="preparing">Start Preparing</option>
-                      <option value="out_for_delivery">Out for Delivery</option>
-                      <option value="delivered">Delivered</option>
-                      <option value="cancelled">Cancel Order</option>
-                    </select>
+                  <div className="admin-order-actions" style={{ flexDirection: 'column', gap: '8px', alignItems: 'stretch' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {order.status !== 'preparing' && (
+                        <button
+                          onClick={() => handleStatusChange(order.id, 'preparing')}
+                          disabled={updatingStatusId === order.id}
+                          className="btn btn-sm"
+                          style={{ background: '#fff3cd', color: '#856404', border: '1px solid #ffeeba', fontWeight: 600, flex: 1, padding: '6px 8px', fontSize: '12px' }}
+                        >
+                          👨‍🍳 Start Preparing
+                        </button>
+                      )}
+                      {order.status !== 'out_for_delivery' && (
+                        <button
+                          onClick={() => handleStatusChange(order.id, 'out_for_delivery')}
+                          disabled={updatingStatusId === order.id}
+                          className="btn btn-sm"
+                          style={{ background: '#cce5ff', color: '#004085', border: '1px solid #b8daff', fontWeight: 600, flex: 1, padding: '6px 8px', fontSize: '12px' }}
+                        >
+                          🛵 Out for Delivery
+                        </button>
+                      )}
+                      {order.status !== 'delivered' && (
+                        <button
+                          onClick={() => handleStatusChange(order.id, 'delivered')}
+                          disabled={updatingStatusId === order.id}
+                          className="btn btn-sm"
+                          style={{ background: '#d4edda', color: '#155724', border: '1px solid #c3e6cb', fontWeight: 600, flex: 1, padding: '6px 8px', fontSize: '12px' }}
+                        >
+                          🍰 Delivered
+                        </button>
+                      )}
+                      {order.status !== 'cancelled' && (
+                        <button
+                          onClick={() => handleStatusChange(order.id, 'cancelled')}
+                          disabled={updatingStatusId === order.id}
+                          className="btn btn-sm"
+                          style={{ background: '#f8d7da', color: '#721c24', border: '1px solid #f5c6cb', fontWeight: 600, flex: 1, padding: '6px 8px', fontSize: '12px' }}
+                        >
+                          ❌ Cancel
+                        </button>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <select
+                        className="status-select"
+                        value={order.status}
+                        disabled={updatingStatusId === order.id}
+                        onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                        style={{ flex: 1 }}
+                      >
+                        <option value="preparing">Start Preparing</option>
+                        <option value="out_for_delivery">Out for Delivery</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="cancelled">Cancel Order</option>
+                      </select>
 
                     {/* Assign to Rider dropdown */}
                     <div style={{ position: 'relative', flex: 1 }}>
