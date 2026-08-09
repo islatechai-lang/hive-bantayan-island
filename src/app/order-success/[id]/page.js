@@ -69,7 +69,7 @@ export default function OrderSuccessPage() {
         </p>
       </div>
 
-      {/* AI Verification Notice (For GCash payments) */}
+      {/* GCash Payment Review Notice */}
       {order.paymentMethod === 'gcash' && (
         <div 
           className="card" 
@@ -84,9 +84,9 @@ export default function OrderSuccessPage() {
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
               <ShieldCheck className="text-success" size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
               <div>
-                <strong style={{ color: '#155724', fontSize: '14px', display: 'block' }}>GCash Auto-Verified</strong>
+                <strong style={{ color: '#155724', fontSize: '14px', display: 'block' }}>Payment Confirmed</strong>
                 <span style={{ color: '#246b38', fontSize: '12px', lineHeight: 1.4, display: 'block', marginTop: '2px' }}>
-                  {order.aiVerification?.reason || 'Our AI verified your payment receipt screenshot. Your order is now preparing!'}
+                  Your GCash payment receipt has been confirmed! Your order is now being prepared.
                 </span>
               </div>
             </div>
@@ -94,9 +94,9 @@ export default function OrderSuccessPage() {
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
               <HelpCircle style={{ color: '#856404' }} size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
               <div>
-                <strong style={{ color: '#856404', fontSize: '14px', display: 'block' }}>Payment Pending Verification</strong>
+                <strong style={{ color: '#856404', fontSize: '14px', display: 'block' }}>Payment Awaiting Admin Review</strong>
                 <span style={{ color: '#997305', fontSize: '12px', lineHeight: 1.4, display: 'block', marginTop: '2px' }}>
-                  {order.aiVerification?.reason || 'Our AI is reviewing your screenshot. An admin will confirm it shortly.'}
+                  Your GCash receipt has been received! Our admin will review and confirm your payment shortly.
                 </span>
               </div>
             </div>
