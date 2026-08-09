@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { setUserExternalId, requestNotificationPermission } from '../lib/onesignal';
 
 const AuthContext = createContext({});
 
@@ -31,6 +32,15 @@ export function AuthProvider({ children }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
+        
+        // Register device with Median.co OneSignal push notification bridge
+        try {
+          requestNotificationPermission();
+          setUserExternalId(firebaseUser.uid);
+        } catch (oneSignalErr) {
+          console.warn('OneSignal registration error:', oneSignalErr);
+        }
+
         // Fetch or create user doc in Firestore
         try {
           const userRef = doc(db, 'users', firebaseUser.uid);

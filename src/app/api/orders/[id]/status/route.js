@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { sendPushNotification } from '@/lib/onesignal';
+import { sendPushNotification } from '../../../../lib/onesignal';
 
 function getAdminDb() {
   const key = process.env.FIREBASE_PRIVATE_KEY;
@@ -90,13 +90,13 @@ export async function PATCH(request, { params }) {
 
     try {
       // OneSignal Rest API push using customer's uid as target external alias id
-      await sendPushNotification({
+      const pushResult = await sendPushNotification({
         heading: pushHeading,
         content: pushContent,
         externalUserIds: [orderData.userId],
-        url: 'https://hive-bantayan-8598e.web.app/orders'
+        url: 'https://bantayan-hive-island.vercel.app/orders'
       });
-      console.log(`Push notification sent to user: ${orderData.userId}`);
+      console.log(`Push notification sent to user: ${orderData.userId}`, pushResult);
     } catch (pushError) {
       console.error('Failed to send push notification via OneSignal API:', pushError);
     }
