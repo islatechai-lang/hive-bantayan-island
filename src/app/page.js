@@ -36,12 +36,17 @@ export default function MenuPage() {
     }
   }, [user, authLoading, router]);
 
-  // Check if store is open (8AM - 12AM)
+  // Check if store is open (8AM - 12AM) and trigger automated broadcast check
   useEffect(() => {
     const checkStoreStatus = () => {
       const now = new Date();
       const hour = now.getHours();
       setIsOpen(hour >= 8 && hour < 24);
+
+      // Trigger automatic store hours push broadcast check at 8 AM (open) & 12 AM (close)
+      if (hour === 8 || hour === 0) {
+        fetch('/api/cron/store-hours').catch(() => {});
+      }
     };
 
     checkStoreStatus();

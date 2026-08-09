@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/store-hours?action=open",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/store-hours?action=close",
+      "schedule": "0 16 * * *"
+    }
+  ]
+}
