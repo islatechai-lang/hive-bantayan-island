@@ -142,43 +142,44 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
     ...(url && { url }),
   };
 
-  const authAttempts = [
-    { name: 'Key', headers: { 'Authorization': `Key ${apiKey}` } },
-    { name: 'Bearer', headers: { 'Authorization': `Bearer ${apiKey}` } },
-    { name: 'Basic', headers: { 'Authorization': `Basic ${apiKey}` } },
-    { name: 'Body_api_key', bodyExtra: { api_key: apiKey } },
-    { name: 'Body_app_key', bodyExtra: { app_key: apiKey } }
+  const endpoints = [
+    'https://onesignal.com/api/v1/notifications',
+    'https://api.onesignal.com/notifications',
   ];
+
+  const authHeaderTypes = ['Key', 'Basic', 'Bearer'];
 
   let lastResult = null;
 
-  for (const attempt of authAttempts) {
-    try {
-      const currentPayload = attempt.bodyExtra ? { ...payload, ...attempt.bodyExtra } : payload;
-      const res = await fetch('https://onesignal.com/api/v1/notifications', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-          ...(attempt.headers || {})
-        },
-        body: JSON.stringify(currentPayload)
-      });
+  for (const endpoint of endpoints) {
+    for (const headerType of authHeaderTypes) {
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Authorization': `${headerType} ${apiKey}`,
+          },
+          body: JSON.stringify(payload),
+        });
 
-      const data = await res.json();
-      console.log(`OneSignal auth attempt (${attempt.name}):`, res.status, data);
+        const data = await res.json();
+        console.log(`OneSignal attempt (${endpoint} | ${headerType}):`, res.status, data);
 
-      lastResult = {
-        status: res.status,
-        ok: res.ok,
-        authMethodUsed: attempt.name,
-        data
-      };
+        lastResult = {
+          status: res.status,
+          ok: res.ok,
+          endpoint,
+          authMethodUsed: headerType,
+          data,
+        };
 
-      if (res.ok && !data.errors) {
-        return lastResult;
+        if (res.ok && !data.errors) {
+          return lastResult;
+        }
+      } catch (e) {
+        console.warn(`OneSignal attempt failed (${endpoint} | ${headerType}):`, e);
       }
-    } catch (e) {
-      console.warn(`OneSignal auth attempt (${attempt.name}) failed:`, e);
     }
   }
 

@@ -17,12 +17,18 @@ export async function POST(request) {
       url: 'https://bantayan-hive-island.vercel.app',
     });
 
+    const apiKey = process.env.ONESIGNAL_API_KEY ? process.env.ONESIGNAL_API_KEY.trim() : '';
+    const appId = (process.env.ONESIGNAL_APP_ID || process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || '').trim();
+
     return NextResponse.json({
       success: true,
       pushResult,
       envCheck: {
-        hasAppId: !!(process.env.ONESIGNAL_APP_ID || process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID),
-        hasApiKey: !!process.env.ONESIGNAL_API_KEY,
+        hasAppId: !!appId,
+        appIdValue: appId || 'MISSING',
+        hasApiKey: !!apiKey,
+        keyLength: apiKey.length,
+        keyPrefix: apiKey ? apiKey.substring(0, 10) + '...' : 'MISSING',
       }
     });
   } catch (error) {
