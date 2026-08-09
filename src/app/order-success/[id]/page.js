@@ -52,9 +52,12 @@ export default function OrderSuccessPage() {
     <div className="page">
       <div className="text-center mb-lg">
         {/* Clean Standalone Motorcycle with Speed Trail Emoji */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
-          <span style={{ fontSize: '3.6rem', display: 'inline-block' }} title="Rider on the way">
-            🛵💨
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '2px', marginBottom: '0.75rem' }}>
+          <span style={{ fontSize: '3.6rem', lineHeight: 1 }} title="Rider on the way">
+            🛵
+          </span>
+          <span style={{ fontSize: '2.2rem', opacity: 0.85, marginTop: '12px' }}>
+            💨
           </span>
         </div>
 

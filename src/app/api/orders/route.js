@@ -1,24 +1,21 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase-admin';
 
 export async function POST(request) {
   try {
     const orderData = await request.json();
-    const { paymentMethod, gcashReceiptUrl, total } = orderData;
+    const { paymentMethod, gcashReceiptUrl, total, orderId: incomingOrderId } = orderData;
 
     // Set initial status based on payment type
-    let finalStatus = 'pending';
+    let finalStatus = 'preparing';
     let aiVerificationResult = null;
 
     if (paymentMethod === 'cod') {
-      // COD orders bypass approval and go straight to preparing
       finalStatus = 'preparing';
     } else if (paymentMethod === 'gcash' && gcashReceiptUrl) {
       const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
       
       if (apiKey) {
         try {
-          // Fetch image from Supabase Storage and convert to base64
           const imageRes = await fetch(gcashReceiptUrl);
           if (imageRes.ok) {
             const arrayBuffer = await imageRes.arrayBuffer();
@@ -31,7 +28,6 @@ export async function POST(request) {
               year: 'numeric'
             });
 
-            // Prompt Gemini for invoice audit
             const geminiPrompt = `
               You are an AI assistant for a cake delivery shop in Bantayan Island called Bantayan Hive.
               Your task is to analyze the attached GCash receipt image and verify if it is valid for this order.
@@ -55,7 +51,6 @@ export async function POST(request) {
               }
             `;
 
-            // Call Gemini API using fetch (works out-of-the-box in Next.js Server Components)
             const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
             const geminiRes = await fetch(geminiUrl, {
               method: 'POST',
@@ -87,7 +82,6 @@ export async function POST(request) {
               if (responseText) {
                 const parsedResult = JSON.parse(responseText.trim());
                 aiVerificationResult = parsedResult;
-
                 finalStatus = 'preparing';
               }
             } else {
@@ -100,25 +94,31 @@ export async function POST(request) {
       }
     }
 
-    // Write final order doc to Firestore if not already passed from client
-    let orderId = orderData.orderId;
-    if (!orderId && adminDb) {
-      const docRef = await adminDb.collection('orders').add({
-        ...orderData,
-        status: finalStatus,
-        aiVerification: aiVerificationResult,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-      orderId = docRef.id;
+    // Try optional server-side Firestore write if adminDb is available
+    let orderId = incomingOrderId || 'ORDER_' + Date.now();
+    try {
+      const { adminDb } = require('../../../lib/firebase-admin');
+      if (!incomingOrderId && adminDb) {
+        const docRef = await adminDb.collection('orders').add({
+          ...orderData,
+          status: finalStatus,
+          aiVerification: aiVerificationResult,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        orderId = docRef.id;
+      }
+    } catch (adminErr) {
+      console.warn('Firebase Admin DB write skipped (handled client-side):', adminErr.message);
     }
 
     const shortId = orderId ? orderId.slice(-6).toUpperCase() : 'NEW';
 
     // Send email alert to Admin via Resend API
-    const resendApiKey = process.env.RESEND_API_KEY;
-    const notificationEmail = process.env.NOTIFICATION_EMAIL || 'princederder44@gmail.com';
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+    const rawResendKey = process.env.RESEND_API_KEY;
+    const resendApiKey = rawResendKey ? rawResendKey.trim() : undefined;
+    const notificationEmail = (process.env.NOTIFICATION_EMAIL || 'princederder44@gmail.com').trim();
+    const fromEmail = (process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev').trim();
 
     if (resendApiKey) {
       try {
@@ -126,7 +126,9 @@ export async function POST(request) {
           .map(i => `<li><strong>${i.quantity}x</strong> ${i.name} — ₱${i.price * i.quantity}</li>`)
           .join('');
 
-        console.log(`Sending Resend email to ${notificationEmail} from ${fromEmail}...`);
+        const resendFrom = fromEmail.includes('<') ? fromEmail : `Bantayan Hive Orders <${fromEmail}>`;
+
+        console.log(`Sending Resend email to ${notificationEmail} from ${resendFrom}...`);
 
         const resendRes = await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -135,9 +137,9 @@ export async function POST(request) {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            from: `Bantayan Hive Orders <${fromEmail}>`,
+            from: resendFrom,
             to: [notificationEmail],
-            subject: `🚨 NEW ORDER #${shortId} - ₱${total} (${(paymentMethod || 'COD').toUpperCase()})`,
+            subject: `🚨 NEW ORDER #${shortId} - ₱${total || 0} (${(paymentMethod || 'COD').toUpperCase()})`,
             html: `
               <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 12px;">
                 <h2 style="color: #EB687E; margin-top: 0;">🍰 New Order Received on Bantayan Hive!</h2>
@@ -146,7 +148,7 @@ export async function POST(request) {
                 <p><strong>Phone:</strong> ${orderData.userPhone || 'N/A'}</p>
                 <p><strong>Delivery Address:</strong> ${orderData.address || 'Live GPS Location'}</p>
                 <p><strong>Payment Method:</strong> ${(paymentMethod || 'COD').toUpperCase()}</p>
-                <p><strong>Total Amount:</strong> <span style="font-size: 1.2rem; color: #EB687E; font-weight: bold;">₱${total}</span></p>
+                <p><strong>Total Amount:</strong> <span style="font-size: 1.2rem; color: #EB687E; font-weight: bold;">₱${total || 0}</span></p>
                 ${orderData.riderNote ? `<p><strong>Note for Rider:</strong> <em>${orderData.riderNote}</em></p>` : ''}
                 
                 <h3 style="border-bottom: 1px solid #ddd; padding-bottom: 8px;">Items Ordered:</h3>
@@ -161,11 +163,15 @@ export async function POST(request) {
 
         const resendData = await resendRes.json();
         console.log('Resend email API response status:', resendRes.status, resendData);
+
+        if (!resendRes.ok) {
+          console.error('Resend API returned non-200 status:', resendRes.status, resendData);
+        }
       } catch (emailErr) {
         console.error('Failed to send Resend email alert:', emailErr);
       }
     } else {
-      console.warn('RESEND_API_KEY is not set in environment variables. Email notification skipped.');
+      console.warn('RESEND_API_KEY is missing or empty. Email notification skipped.');
     }
 
     return NextResponse.json({
@@ -175,7 +181,7 @@ export async function POST(request) {
       aiVerification: aiVerificationResult
     });
   } catch (error) {
-    console.error('Create order API error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Create order API top-level error:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 200 });
   }
 }
