@@ -124,8 +124,8 @@ export async function setUserTags(tags) {
   return false;
 }
 
-// Fast Server-Side Push Dispatcher via OneSignal REST API
-export async function sendPushNotification({ heading, content, url }) {
+// Server-side: send push notification via OneSignal REST API specifically to target user
+export async function sendPushNotification({ heading, content, externalUserIds, url, sendToAll }) {
   const rawKey = process.env.ONESIGNAL_API_KEY;
   const rawAppId = process.env.ONESIGNAL_APP_ID || process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
 
@@ -136,45 +136,84 @@ export async function sendPushNotification({ heading, content, url }) {
 
   const apiKey = rawKey.trim();
   const appId = rawAppId.trim();
+
   const targetUrl = url || 'https://hive-bantayan-island.vercel.app/orders';
 
-  // Always send to all subscribed devices — individual external_id targeting
-  // doesn't work reliably with Median.co native bridge registration
   const payload = {
     app_id: appId,
     headings: { en: heading },
     contents: { en: content },
-    included_segments: ['Subscribed Users'],
     url: targetUrl,
     web_url: targetUrl,
     app_url: targetUrl,
-    data: { url: targetUrl, targetUrl },
+    data: {
+      url: targetUrl,
+      targetUrl: targetUrl,
+    },
+    ...(sendToAll || !externalUserIds || externalUserIds.length === 0 ? {
+      included_segments: ['Subscribed Users'],
+    } : {
+      include_external_user_ids: externalUserIds,
+      include_aliases: {
+        external_id: externalUserIds,
+      },
+      channel_for_external_user_ids: 'push',
+    }),
     target_channel: 'push',
   };
 
   const endpoint = 'https://api.onesignal.com/notifications';
+  const headers = {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Authorization': `Bearer ${apiKey}`,
+  };
 
   try {
     const res = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Authorization': `Bearer ${apiKey}`,
-      },
+      headers,
       body: JSON.stringify(payload),
     });
 
     const data = await res.json();
-    console.log('OneSignal push response:', res.status, data);
+    console.log(`OneSignal direct push response:`, res.status, data);
+
+    // If targeted user isn't directly subscribed with external_id yet, fallback to Subscribed Users segment
+    if (res.ok && data?.errors && (data.errors.includes('All included players are not subscribed') || data.errors.includes('All included players are invalid')) && externalUserIds && externalUserIds.length > 0) {
+      console.warn('⚠️ User ID not directly subscribed in OneSignal yet. Retrying with Subscribed Users segment...');
+      const fallbackRes = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          app_id: appId,
+          headings: { en: heading },
+          contents: { en: content },
+          url: targetUrl,
+          web_url: targetUrl,
+          app_url: targetUrl,
+          data: { url: targetUrl, targetUrl },
+          included_segments: ['Subscribed Users'],
+          target_channel: 'push',
+        }),
+      });
+      const fallbackData = await fallbackRes.json();
+      return {
+        status: fallbackRes.status,
+        ok: fallbackRes.ok,
+        endpoint,
+        data: fallbackData,
+        fallbackSegmentUsed: true,
+      };
+    }
 
     return {
       status: res.status,
       ok: res.ok,
+      endpoint,
       data,
     };
-  } catch (err) {
-    console.error('OneSignal push notification error:', err);
-    return { error: err.message || String(err) };
+  } catch (e) {
+    console.error('OneSignal push notification error:', e);
+    return { error: e.message || String(e) };
   }
 }
-
