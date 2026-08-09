@@ -73,8 +73,8 @@ export async function PATCH(request, { params }) {
         pushContent = 'Our chefs are crafting your delicious order right now.';
         break;
       case 'out_for_delivery':
-        pushHeading = 'Driver Out for Delivery! 🛵';
-        pushContent = 'Your cake/milkshake is on the way! Please keep your phone line open.';
+        pushHeading = 'Out for Delivery 🛵';
+        pushContent = 'Your order is on the way!';
         break;
       case 'delivered':
         pushHeading = 'Delivered successfully! Enjoy! 🍰';
