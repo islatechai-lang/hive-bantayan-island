@@ -153,8 +153,8 @@ export default function CartPage() {
     setSubmittingOrder(true);
 
     try {
-      // Force-sync the latest GPS coordinates to Firestore before placing order
-      const freshLocation = await forceLocationSync();
+      // Use existing liveLocation state instantly, or trigger quick sync if missing
+      const loc = liveLocation || await forceLocationSync();
 
       // COD = auto-confirmed (preparing), GCash = pending until AI verifies
       const initialStatus = paymentMethod === 'cod' ? 'preparing' : 'pending';
@@ -164,8 +164,8 @@ export default function CartPage() {
         userName: dbUser?.name || 'Customer',
         userPhone: dbUser?.phone || user.phoneNumber || '',
         location: {
-          lat: freshLocation.lat,
-          lng: freshLocation.lng,
+          lat: loc.lat,
+          lng: loc.lng,
         },
         address: 'Live GPS Location',
         riderNote: riderNote.trim() || '',
@@ -187,10 +187,12 @@ export default function CartPage() {
         updatedAt: new Date().toISOString()
       };
 
-      // Write directly to Firestore (client-side — always works)
+      // Write directly to Firestore (client-side — instant)
       const docRef = await addDoc(collection(db, 'orders'), orderData);
+      const newOrderId = docRef.id;
 
-      // Decrement product stock count atomatically in Firestore
+      // Non-blocking background operations:
+      // 1. Decrement product stock count in Firestore
       try {
         const batch = writeBatch(db);
         cart.forEach((item) => {
@@ -199,42 +201,38 @@ export default function CartPage() {
             stock: increment(-item.quantity)
           });
         });
-        await batch.commit();
+        batch.commit().catch(err => console.error('Stock update warning:', err));
       } catch (stockErr) {
         console.error('Failed to update product stock counts:', stockErr);
       }
 
-      // Trigger email alert to Admin via Resend API
-      try {
-        await fetch('/api/orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          keepalive: true,
-          body: JSON.stringify({
-            orderId: docRef.id,
-            ...orderData
-          })
-        });
-      } catch (err) {
-        console.warn('Email dispatch warning:', err);
-      }
+      // 2. Trigger email alert to Admin via Resend API (non-blocking)
+      fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify({
+          orderId: newOrderId,
+          ...orderData
+        })
+      }).catch(err => console.warn('Email dispatch warning (non-blocking):', err));
 
-      // For GCash, kick off AI receipt verification in the background (fire-and-forget)
+      // 3. For GCash, kick off AI receipt verification (non-blocking)
       if (paymentMethod === 'gcash' && receiptUrl) {
         fetch('/api/verify-receipt', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId: docRef.id, gcashReceiptUrl: receiptUrl, total: getTotal() })
+          keepalive: true,
+          body: JSON.stringify({ orderId: newOrderId, gcashReceiptUrl: receiptUrl, total: getTotal() })
         }).catch(err => console.warn('AI verification request failed (non-blocking):', err));
       }
       
       showToast('Order placed! Your rider will navigate to your GPS pin.', 'success');
       clearCart();
-      router.push(`/order-success/${docRef.id}`);
+      router.push(`/order-success/${newOrderId}`);
     } catch (error) {
       console.error('Error placing order:', error);
       showToast('Failed to place order. Please try again.', 'error');
-    } finally {
       setSubmittingOrder(false);
     }
   };

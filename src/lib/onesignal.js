@@ -124,7 +124,7 @@ export async function setUserTags(tags) {
   return false;
 }
 
-// Server-side: send push notification via OneSignal REST API
+// Fast Server-Side Push Dispatcher via OneSignal REST API
 export async function sendPushNotification({ heading, content, externalUserIds, url, sendToAll }) {
   const rawKey = process.env.ONESIGNAL_API_KEY;
   const rawAppId = process.env.ONESIGNAL_APP_ID || process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
@@ -136,7 +136,6 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
 
   const apiKey = rawKey.trim();
   const appId = rawAppId.trim();
-
   const targetUrl = url || 'https://hive-bantayan-island.vercel.app/orders';
 
   const payload = {
@@ -146,10 +145,7 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
     url: targetUrl,
     web_url: targetUrl,
     app_url: targetUrl,
-    data: {
-      url: targetUrl,
-      targetUrl: targetUrl,
-    },
+    data: { url: targetUrl, targetUrl },
     ...(sendToAll || !externalUserIds || externalUserIds.length === 0 ? {
       included_segments: ['Subscribed Users'],
     } : {
@@ -162,80 +158,58 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
     target_channel: 'push',
   };
 
-  const endpoints = [
-    'https://onesignal.com/api/v1/notifications',
-    'https://api.onesignal.com/notifications',
-  ];
+  const endpoint = 'https://api.onesignal.com/notifications';
+  const headers = {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Authorization': `Bearer ${apiKey}`,
+  };
 
-  const authHeaderTypes = ['Bearer', 'Key', 'Basic'];
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
 
-  let lastResult = null;
+    const data = await res.json();
+    console.log(`OneSignal direct push response:`, res.status, data);
 
-  for (const endpoint of endpoints) {
-    for (const headerType of authHeaderTypes) {
-      try {
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json; charset=utf-8',
-            'Authorization': `${headerType} ${apiKey}`,
-          },
-          body: JSON.stringify(payload),
-        });
-
-        const data = await res.json();
-        console.log(`OneSignal attempt (${endpoint} | ${headerType}):`, res.status, data);
-
-        lastResult = {
-          status: res.status,
-          ok: res.ok,
-          endpoint,
-          authMethodUsed: headerType,
-          data,
-        };
-
-        if (res.ok) {
-          // If specific user ID wasn't subscribed yet, fallback to Subscribed Users segment so notification arrives!
-          if (data?.errors && (data.errors.includes('All included players are not subscribed') || data.errors.includes('All included players are invalid')) && externalUserIds && externalUserIds.length > 0) {
-            console.warn('⚠️ User ID not directly subscribed in OneSignal yet. Retrying with Subscribed Users segment...');
-            const fallbackRes = await fetch(endpoint, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json; charset=utf-8',
-                'Authorization': `${headerType} ${apiKey}`,
-              },
-              body: JSON.stringify({
-                app_id: appId,
-                headings: { en: heading },
-                contents: { en: content },
-                url: targetUrl,
-                web_url: targetUrl,
-                app_url: targetUrl,
-                data: { url: targetUrl, targetUrl },
-                included_segments: ['Subscribed Users'],
-                target_channel: 'push',
-              }),
-            });
-            const fallbackData = await fallbackRes.json();
-            return {
-              status: fallbackRes.status,
-              ok: fallbackRes.ok,
-              endpoint,
-              authMethodUsed: headerType,
-              data: fallbackData,
-              fallbackSegmentUsed: true,
-            };
-          }
-
-          if (!data.errors) {
-            return lastResult;
-          }
-        }
-      } catch (e) {
-        console.warn(`OneSignal attempt failed (${endpoint} | ${headerType}):`, e);
-      }
+    // If targeted user isn't directly subscribed in OneSignal yet, trigger segment fallback so push still arrives!
+    if (res.ok && data?.errors && (data.errors.includes('All included players are not subscribed') || data.errors.includes('All included players are invalid')) && externalUserIds && externalUserIds.length > 0) {
+      console.warn('⚠️ Target user ID not directly subscribed in OneSignal. Retrying with Subscribed Users segment...');
+      const fallbackRes = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          app_id: appId,
+          headings: { en: heading },
+          contents: { en: content },
+          url: targetUrl,
+          web_url: targetUrl,
+          app_url: targetUrl,
+          data: { url: targetUrl, targetUrl },
+          included_segments: ['Subscribed Users'],
+          target_channel: 'push',
+        }),
+      });
+      const fallbackData = await fallbackRes.json();
+      return {
+        status: fallbackRes.status,
+        ok: fallbackRes.ok,
+        endpoint,
+        data: fallbackData,
+        fallbackSegmentUsed: true,
+      };
     }
-  }
 
-  return lastResult || { error: 'All authentication attempts failed' };
+    return {
+      status: res.status,
+      ok: res.ok,
+      endpoint,
+      data,
+    };
+  } catch (err) {
+    console.error('OneSignal push notification error:', err);
+    return { error: err.message || String(err) };
+  }
 }
