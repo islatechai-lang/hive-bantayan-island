@@ -205,10 +205,10 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
     data: { url: targetUrl, targetUrl },
   });
 
-  const aliasRecipients = aliasData?.recipients || 0;
-  if (aliasRes?.ok && aliasRecipients > 0) {
-    console.log(`✅ OneSignal push delivered via include_aliases to ${aliasRecipients} device(s)`);
-    return { status: aliasRes.status, ok: true, method: 'include_aliases', recipients: aliasRecipients, data: aliasData };
+  const aliasSuccess = aliasRes?.ok && aliasData?.id && !aliasData?.errors;
+  if (aliasSuccess) {
+    console.log(`✅ OneSignal push delivered via include_aliases:`, aliasData);
+    return { status: aliasRes.status, ok: true, method: 'include_aliases', data: aliasData };
   }
 
   // STEP 3: Try OneSignal v3/v4 include_external_user_ids ALONE
@@ -223,10 +223,10 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
     data: { url: targetUrl, targetUrl },
   });
 
-  const extRecipients = extData?.recipients || 0;
-  if (extRes?.ok && extRecipients > 0) {
-    console.log(`✅ OneSignal push delivered via include_external_user_ids to ${extRecipients} device(s)`);
-    return { status: extRes.status, ok: true, method: 'include_external_user_ids', recipients: extRecipients, data: extData };
+  const extSuccess = extRes?.ok && extData?.id && !extData?.errors;
+  if (extSuccess) {
+    console.log(`✅ OneSignal push delivered via include_external_user_ids:`, extData);
+    return { status: extRes.status, ok: true, method: 'include_external_user_ids', data: extData };
   }
 
   // STEP 4: Try OneSignal tag filter (user_id = targetUserId) ALONE
@@ -242,19 +242,19 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
     data: { url: targetUrl, targetUrl },
   });
 
-  const tagRecipients = tagData?.recipients || 0;
-  if (tagRes?.ok && tagRecipients > 0) {
-    console.log(`✅ OneSignal push delivered via tag filter to ${tagRecipients} device(s)`);
-    return { status: tagRes.status, ok: true, method: 'tag_filter', recipients: tagRecipients, data: tagData };
+  const tagSuccess = tagRes?.ok && tagData?.id && !tagData?.errors;
+  if (tagSuccess) {
+    console.log(`✅ OneSignal push delivered via tag filter:`, tagData);
+    return { status: tagRes.status, ok: true, method: 'tag_filter', data: tagData };
   }
 
-  // STEP 5: Segment Fallback (so active app users always get notified if external_id hasn't linked yet)
-  console.warn(`⚠️ User ID '${targetUserId}' reached 0 recipients on all targeting methods. Falling back to Subscribed Users segment...`);
+  // STEP 5: Segment Fallback (so active app users always get notified if user ID isn't registered yet)
+  console.warn(`⚠️ User ID '${targetUserId}' not directly found on targeted methods. Triggering single segment fallback...`);
   const { res: segRes, data: segData } = await sendRequest({
     app_id: appId,
     headings: { en: heading },
     contents: { en: content },
-    included_segments: ['Subscribed Users', 'Total Subscriptions'],
+    included_segments: ['Subscribed Users'],
     web_url: targetUrl,
     app_url: targetUrl,
     data: { url: targetUrl, targetUrl },
@@ -264,7 +264,6 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
     status: segRes?.status,
     ok: segRes?.ok,
     method: 'segment_fallback',
-    recipients: segData?.recipients || 0,
     data: segData,
   };
 }
