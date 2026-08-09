@@ -5,9 +5,10 @@
 if (typeof window !== 'undefined') {
   // Global hook for Median JS Bridge notification opened/tapped event
   window.median_onesignal_opened = function(data) {
-    console.log('🔔 OneSignal push tapped by user:', data);
-    const target = data?.url || data?.web_url || data?.app_url || data?.targetUrl;
+    console.log('🔔 OneSignal push tapped by user inside Median App:', data);
+    const target = data?.targetUrl || data?.url || data?.custom?.a?.targetUrl || data?.custom?.a?.url;
     if (target) {
+      // Navigate inside the app webview
       window.location.href = target;
     }
   };
@@ -124,7 +125,8 @@ export async function setUserTags(tags) {
   return false;
 }
 
-// Server-side: single-request push dispatcher targeted directly to customer user ID
+// Server-side: push dispatcher targeted directly to customer user ID
+// Note: We deliberately omit top-level web_url/app_url so Median native app keeps user INSIDE the app webview
 export async function sendPushNotification({ heading, content, externalUserIds, url, sendToAll }) {
   const rawKey = process.env.ONESIGNAL_API_KEY;
   const rawAppId = process.env.ONESIGNAL_APP_ID || process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
@@ -140,14 +142,18 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
   const endpoint = 'https://api.onesignal.com/notifications';
   const targetUserId = (externalUserIds && externalUserIds.length > 0) ? externalUserIds[0] : null;
 
+  // Custom data payload for Median native app internal webview navigation
+  const dataPayload = {
+    targetUrl: targetUrl,
+    url: targetUrl,
+  };
+
   const payload = (sendToAll || !targetUserId) ? {
     app_id: appId,
     headings: { en: heading },
     contents: { en: content },
     included_segments: ['Subscribed Users'],
-    web_url: targetUrl,
-    app_url: targetUrl,
-    data: { url: targetUrl, targetUrl },
+    data: dataPayload,
   } : {
     app_id: appId,
     headings: { en: heading },
@@ -156,9 +162,7 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
       external_id: [targetUserId],
     },
     target_channel: 'push',
-    web_url: targetUrl,
-    app_url: targetUrl,
-    data: { url: targetUrl, targetUrl },
+    data: dataPayload,
   };
 
   try {
@@ -172,7 +176,7 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
     });
 
     const data = await res.json();
-    console.log('OneSignal single push response:', res.status, data);
+    console.log('OneSignal push response:', res.status, data);
 
     // If targeted external_id user wasn't registered in OneSignal yet, retry once with Subscribed Users segment
     if (res.ok && data?.errors && targetUserId) {
@@ -188,9 +192,7 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
           headings: { en: heading },
           contents: { en: content },
           included_segments: ['Subscribed Users'],
-          web_url: targetUrl,
-          app_url: targetUrl,
-          data: { url: targetUrl, targetUrl },
+          data: dataPayload,
         }),
       });
       const fallbackData = await fallbackRes.json();
@@ -199,7 +201,7 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
 
     return { status: res.status, ok: res.ok, data };
   } catch (err) {
-    console.error('OneSignal single push error:', err);
+    console.error('OneSignal push error:', err);
     return { error: err.message || String(err) };
   }
 }
