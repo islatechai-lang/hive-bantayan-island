@@ -78,7 +78,7 @@ export async function PATCH(request, { params }) {
         break;
       case 'delivered':
         pushHeading = 'Delivered successfully! Enjoy! 🍰';
-        pushContent = 'Thank you for ordering with Hive Bantayan. Have a sweet day!';
+        pushContent = 'Thank you for ordering with Bantayan Hive. Have a sweet day!';
         break;
       case 'cancelled':
         pushHeading = 'Order Cancelled';

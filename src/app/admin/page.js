@@ -176,6 +176,9 @@ export default function AdminPage() {
       // Optimistic status update locally
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
 
+      // Auto-switch view to the target status tab
+      setStatusFilter(newStatus);
+
       // Trigger PATCH route to update Firestore & send OneSignal push notification
       const res = await fetch(`/api/orders/${orderId}/status`, {
         method: 'PATCH',
@@ -185,7 +188,7 @@ export default function AdminPage() {
 
       if (!res.ok) throw new Error('Status API error');
       
-      showToast(`Order status updated to ${newStatus}`, 'success');
+      showToast(`Order status updated to ${newStatus.replace('_', ' ')}`, 'success');
     } catch (error) {
       console.error(error);
       showToast('Failed to update status', 'error');
@@ -280,7 +283,7 @@ export default function AdminPage() {
   if (!isAuthenticated) {
     return (
       <div className="auth-page">
-        <h1 className="auth-brand">Hive Admin Panel</h1>
+        <h1 className="auth-brand">Bantayan Hive Admin Panel</h1>
         <p className="auth-tagline text-secondary text-sm">Please enter passkey to continue</p>
         <div className="auth-card">
           <form onSubmit={handleLogin}>
@@ -324,7 +327,7 @@ export default function AdminPage() {
     <div className="page-no-nav">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 className="page-title">Hive Admin</h1>
+          <h1 className="page-title">Bantayan Hive Admin</h1>
           <p className="page-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             Manage menu inventory and deliveries
             {!audioEnabled && (
@@ -382,7 +385,7 @@ export default function AdminPage() {
         <div className="flex flex-col gap-md">
           {/* Status Filters */}
           <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', WebkitOverflowScrolling: 'touch' }}>
-            {['preparing', 'pending', 'out_for_delivery', 'delivered', 'cancelled', 'all'].map(f => (
+            {['preparing', 'out_for_delivery', 'delivered', 'cancelled', 'all'].map(f => (
               <button
                 key={f}
                 onClick={() => setStatusFilter(f)}
@@ -471,7 +474,6 @@ export default function AdminPage() {
                       value={order.status}
                       onChange={(e) => handleStatusChange(order.id, e.target.value)}
                     >
-                      <option value="pending">Pending Approval</option>
                       <option value="preparing">Start Preparing</option>
                       <option value="out_for_delivery">Out for Delivery</option>
                       <option value="delivered">Delivered</option>

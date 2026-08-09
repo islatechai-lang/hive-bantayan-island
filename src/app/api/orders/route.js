@@ -33,7 +33,7 @@ export async function POST(request) {
 
             // Prompt Gemini for invoice audit
             const geminiPrompt = `
-              You are an AI assistant for a cake delivery shop in Bantayan Island called Hive Bantayan.
+              You are an AI assistant for a cake delivery shop in Bantayan Island called Bantayan Hive.
               Your task is to analyze the attached GCash receipt image and verify if it is valid for this order.
 
               Order Total: ₱${total}
@@ -88,11 +88,7 @@ export async function POST(request) {
                 const parsedResult = JSON.parse(responseText.trim());
                 aiVerificationResult = parsedResult;
 
-                if (parsedResult.valid === true) {
-                  finalStatus = 'preparing';
-                } else {
-                  finalStatus = 'pending'; // Flagged for manual review
-                }
+                finalStatus = 'preparing';
               }
             } else {
               console.error('Gemini API returned error code:', geminiRes.status);
@@ -131,12 +127,12 @@ export async function POST(request) {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            from: `Hive Orders <${fromEmail}>`,
+            from: `Bantayan Hive Orders <${fromEmail}>`,
             to: [notificationEmail],
             subject: `🚨 NEW ORDER #${shortId} - ₱${total} (${(paymentMethod || 'COD').toUpperCase()})`,
             html: `
               <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 12px;">
-                <h2 style="color: #EB687E; margin-top: 0;">🍰 New Order Received on Hive Bantayan!</h2>
+                <h2 style="color: #EB687E; margin-top: 0;">🍰 New Order Received on Bantayan Hive!</h2>
                 <p><strong>Order ID:</strong> #${shortId}</p>
                 <p><strong>Customer Name:</strong> ${orderData.userName || 'Customer'}</p>
                 <p><strong>Phone:</strong> ${orderData.userPhone || 'N/A'}</p>

@@ -68,7 +68,7 @@ export async function POST(request) {
       month: 'long', day: 'numeric', year: 'numeric'
     });
 
-    const geminiPrompt = `You are an AI assistant for a cake delivery shop called Hive Bantayan.
+    const geminiPrompt = `You are an AI assistant for a cake delivery shop called Bantayan Hive.
 Analyze this GCash receipt screenshot and verify if it is valid for this order.
 
 Order Total: ₱${total}

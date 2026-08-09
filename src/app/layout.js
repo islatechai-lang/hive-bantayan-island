@@ -5,14 +5,19 @@ import { ToastProvider } from "../contexts/ToastContext";
 import Header from "../components/Header";
 
 export const metadata = {
-  title: "Hive Bantayan — Sweet Tiramisu & Milkshakes",
+  title: "Bantayan Hive — Sweet Tiramisu & Milkshakes",
   description: "Bantayan Island's premium delivery service for handcrafted tiramisu cake slices and thick creamy milkshakes. Order online now!",
   keywords: "tiramisu, milkshake, delivery, bantayan, bantayan island, dessert, sweet, food, cebu",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
   openGraph: {
-    title: "Hive Bantayan — Tiramisu & Milkshakes",
+    title: "Bantayan Hive — Tiramisu & Milkshakes",
     description: "Premium dessert delivery directly to your doorstep in Bantayan Island.",
-    url: "https://hive-bantayan-8598e.web.app",
-    siteName: "Hive Bantayan",
+    url: "https://bantayan-hive-island.vercel.app",
+    siteName: "Bantayan Hive",
     locale: "en_PH",
     type: "website",
   },
@@ -30,6 +35,8 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
+        <link rel="icon" href="/logo.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/logo.png" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

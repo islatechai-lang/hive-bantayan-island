@@ -20,9 +20,9 @@ export default function Header() {
   return (
     <header className="sticky-header">
       <div className="header-container">
-        <Link href="/" className="header-logo">
-          <span className="logo-icon">🍰</span>
-          <span className="logo-text">Hive</span>
+        <Link href="/" className="header-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <img src="/logo.png" alt="Bantayan Hive" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
+          <span className="logo-text">Bantayan Hive</span>
         </Link>
         <div className="header-actions">
           {user && (

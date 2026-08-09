@@ -214,8 +214,10 @@ export default function LoginPage() {
 
   return (
     <div className="auth-page">
-      <div className="auth-logo" style={{ fontSize: '3rem', margin: '0 auto 1.5rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '5rem', height: '5rem', background: 'var(--card-bg-accent)', borderRadius: '50%' }}>🍰</div>
-      <h1 className="auth-brand">Hive Bantayan</h1>
+      <div className="auth-logo" style={{ margin: '0 auto 1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <img src="/logo.png" alt="Bantayan Hive Logo" style={{ width: '5.5rem', height: '5.5rem', objectFit: 'contain' }} />
+      </div>
+      <h1 className="auth-brand">Bantayan Hive</h1>
       <p className="auth-tagline">Sweet Tiramisu & Milkshakes Delivered to You</p>
 
       <div className="auth-card">
