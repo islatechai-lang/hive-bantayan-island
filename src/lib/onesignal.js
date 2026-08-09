@@ -146,126 +146,130 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
   const appId = rawAppId.trim();
   const targetUrl = url || 'https://hive-bantayan-island.vercel.app/orders';
   const endpoint = 'https://api.onesignal.com/notifications';
-  const headers = {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Authorization': `Bearer ${apiKey}`,
+  
+  // Helper to make fetch request trying 'Key' header first, then 'Bearer' header
+  const sendRequest = async (payload) => {
+    const authHeaders = [`Key ${apiKey}`, `Bearer ${apiKey}`];
+    let lastRes = null;
+    let lastData = null;
+
+    for (const authHeader of authHeaders) {
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Authorization': authHeader,
+          },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        lastRes = res;
+        lastData = data;
+        if (res.ok) break;
+      } catch (err) {
+        console.warn('OneSignal request error:', err);
+      }
+    }
+
+    return { res: lastRes, data: lastData };
   };
 
   const targetUserId = (externalUserIds && externalUserIds.length > 0) ? externalUserIds[0] : null;
 
-  // STEP 1: If sendToAll is explicitly requested or no targetUserId, send to Subscribed Users segment
+  // STEP 1: If sendToAll is explicitly requested or no targetUserId, send to Subscribed Users / Total Subscriptions segments
   if (sendToAll || !targetUserId) {
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          app_id: appId,
-          headings: { en: heading },
-          contents: { en: content },
-          included_segments: ['Subscribed Users'],
-          url: targetUrl,
-          web_url: targetUrl,
-          app_url: targetUrl,
-          data: { url: targetUrl, targetUrl },
-          target_channel: 'push',
-        }),
-      });
-      const data = await res.json();
-      return { status: res.status, ok: res.ok, data };
-    } catch (err) {
-      return { error: err.message || String(err) };
-    }
-  }
-
-  // STEP 2: Try targeted delivery via external_id alias / include_external_user_ids
-  try {
-    const payloadExternalId = {
+    const { res, data } = await sendRequest({
       app_id: appId,
       headings: { en: heading },
       contents: { en: content },
-      include_aliases: {
-        external_id: [targetUserId],
-      },
-      include_external_user_ids: [targetUserId],
+      included_segments: ['Subscribed Users', 'Total Subscriptions'],
       url: targetUrl,
       web_url: targetUrl,
       app_url: targetUrl,
       data: { url: targetUrl, targetUrl },
-      target_channel: 'push',
-    };
-
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payloadExternalId),
     });
-
-    const data = await res.json();
-    console.log(`OneSignal external_id push attempt result:`, res.status, data);
-
-    const recipients = data?.recipients || 0;
-    if (res.ok && recipients > 0) {
-      return { status: res.status, ok: true, method: 'external_id', recipients, data };
-    }
-
-    // STEP 3: If external_id matched 0 recipients, try tag targeting (user_id tag)
-    console.warn(`⚠️ external_id '${targetUserId}' reached 0 recipients. Trying user_id tag filter...`);
-    const payloadTag = {
-      app_id: appId,
-      headings: { en: heading },
-      contents: { en: content },
-      filters: [
-        { field: 'tag', key: 'user_id', relation: '=', value: targetUserId }
-      ],
-      url: targetUrl,
-      web_url: targetUrl,
-      app_url: targetUrl,
-      data: { url: targetUrl, targetUrl },
-      target_channel: 'push',
-    };
-
-    const tagRes = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payloadTag),
-    });
-
-    const tagData = await tagRes.json();
-    console.log(`OneSignal tag filter push attempt result:`, tagRes.status, tagData);
-
-    const tagRecipients = tagData?.recipients || 0;
-    if (tagRes.ok && tagRecipients > 0) {
-      return { status: tagRes.status, ok: true, method: 'tag_filter', recipients: tagRecipients, data: tagData };
-    }
-
-    // STEP 4: Fallback to Subscribed Users segment if device registration hasn't attached user ID yet
-    console.warn(`⚠️ Target user ID '${targetUserId}' not indexed in OneSignal yet. Triggering segment fallback...`);
-    const fallbackRes = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        app_id: appId,
-        headings: { en: heading },
-        contents: { en: content },
-        included_segments: ['Subscribed Users'],
-        url: targetUrl,
-        web_url: targetUrl,
-        app_url: targetUrl,
-        data: { url: targetUrl, targetUrl },
-        target_channel: 'push',
-      }),
-    });
-    const fallbackData = await fallbackRes.json();
-    return {
-      status: fallbackRes.status,
-      ok: fallbackRes.ok,
-      method: 'segment_fallback',
-      recipients: fallbackData?.recipients || 0,
-      data: fallbackData,
-    };
-  } catch (err) {
-    console.error('OneSignal targeted push error:', err);
-    return { error: err.message || String(err) };
+    return { status: res?.status, ok: res?.ok, data };
   }
+
+  // STEP 2: Try OneSignal v5 include_aliases format ALONE
+  const { res: aliasRes, data: aliasData } = await sendRequest({
+    app_id: appId,
+    headings: { en: heading },
+    contents: { en: content },
+    include_aliases: {
+      external_id: [targetUserId],
+    },
+    target_channel: 'push',
+    url: targetUrl,
+    web_url: targetUrl,
+    app_url: targetUrl,
+    data: { url: targetUrl, targetUrl },
+  });
+
+  const aliasRecipients = aliasData?.recipients || 0;
+  if (aliasRes?.ok && aliasRecipients > 0) {
+    console.log(`✅ OneSignal push delivered via include_aliases to ${aliasRecipients} device(s)`);
+    return { status: aliasRes.status, ok: true, method: 'include_aliases', recipients: aliasRecipients, data: aliasData };
+  }
+
+  // STEP 3: Try OneSignal v3/v4 include_external_user_ids ALONE
+  const { res: extRes, data: extData } = await sendRequest({
+    app_id: appId,
+    headings: { en: heading },
+    contents: { en: content },
+    include_external_user_ids: [targetUserId],
+    channel_for_external_user_ids: 'push',
+    url: targetUrl,
+    web_url: targetUrl,
+    app_url: targetUrl,
+    data: { url: targetUrl, targetUrl },
+  });
+
+  const extRecipients = extData?.recipients || 0;
+  if (extRes?.ok && extRecipients > 0) {
+    console.log(`✅ OneSignal push delivered via include_external_user_ids to ${extRecipients} device(s)`);
+    return { status: extRes.status, ok: true, method: 'include_external_user_ids', recipients: extRecipients, data: extData };
+  }
+
+  // STEP 4: Try OneSignal tag filter (user_id = targetUserId) ALONE
+  const { res: tagRes, data: tagData } = await sendRequest({
+    app_id: appId,
+    headings: { en: heading },
+    contents: { en: content },
+    filters: [
+      { field: 'tag', key: 'user_id', relation: '=', value: targetUserId }
+    ],
+    url: targetUrl,
+    web_url: targetUrl,
+    app_url: targetUrl,
+    data: { url: targetUrl, targetUrl },
+  });
+
+  const tagRecipients = tagData?.recipients || 0;
+  if (tagRes?.ok && tagRecipients > 0) {
+    console.log(`✅ OneSignal push delivered via tag filter to ${tagRecipients} device(s)`);
+    return { status: tagRes.status, ok: true, method: 'tag_filter', recipients: tagRecipients, data: tagData };
+  }
+
+  // STEP 5: Segment Fallback (so active app users always get notified if external_id hasn't linked yet)
+  console.warn(`⚠️ User ID '${targetUserId}' reached 0 recipients on all targeting methods. Falling back to Subscribed Users segment...`);
+  const { res: segRes, data: segData } = await sendRequest({
+    app_id: appId,
+    headings: { en: heading },
+    contents: { en: content },
+    included_segments: ['Subscribed Users', 'Total Subscriptions'],
+    url: targetUrl,
+    web_url: targetUrl,
+    app_url: targetUrl,
+    data: { url: targetUrl, targetUrl },
+  });
+
+  return {
+    status: segRes?.status,
+    ok: segRes?.ok,
+    method: 'segment_fallback',
+    recipients: segData?.recipients || 0,
+    data: segData,
+  };
 }
