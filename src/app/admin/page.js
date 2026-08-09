@@ -433,6 +433,49 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {/* Desktop Dashboard Overview Cards */}
+      <div className="admin-stats-grid">
+        <div className="admin-stat-card" style={{ borderLeft: '4px solid #f39c12' }}>
+          <div className="admin-stat-icon" style={{ background: '#fef5e7', color: '#f39c12' }}>⏳</div>
+          <div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#333' }}>
+              {orders.filter(o => o.status === 'pending').length}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#777', fontWeight: 600 }}>Pending Review</div>
+          </div>
+        </div>
+
+        <div className="admin-stat-card" style={{ borderLeft: '4px solid var(--accent)' }}>
+          <div className="admin-stat-icon" style={{ background: '#fde8ec', color: 'var(--accent)' }}>👩‍🍳</div>
+          <div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#333' }}>
+              {orders.filter(o => o.status === 'preparing').length}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#777', fontWeight: 600 }}>Preparing Orders</div>
+          </div>
+        </div>
+
+        <div className="admin-stat-card" style={{ borderLeft: '4px solid #27ae60' }}>
+          <div className="admin-stat-icon" style={{ background: '#e8f7ef', color: '#27ae60' }}>🛵</div>
+          <div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#333' }}>
+              {orders.filter(o => o.status === 'out_for_delivery').length}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#777', fontWeight: 600 }}>Out for Delivery</div>
+          </div>
+        </div>
+
+        <div className="admin-stat-card" style={{ borderLeft: '4px solid #3498db' }}>
+          <div className="admin-stat-icon" style={{ background: '#ebf5fb', color: '#3498db' }}>📱</div>
+          <div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#333' }}>
+              {onlineRiders.length} / {riders.length}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#777', fontWeight: 600 }}>Riders Online</div>
+          </div>
+        </div>
+      </div>
+
       {/* Tabs */}
       <div className="category-tabs mb-lg">
         <button 
@@ -484,7 +527,7 @@ export default function AdminPage() {
           ) : filteredOrders.length === 0 ? (
             <div className="text-center text-secondary py-xl" style={{ padding: '60px 0' }}>No orders found matching filter</div>
           ) : (
-            <div className="flex flex-col gap-md">
+            <div className="admin-orders-grid">
               {filteredOrders.map(order => (
                 <div key={order.id} className="card">
                   <div className="admin-order-header">
@@ -817,24 +860,24 @@ export default function AdminPage() {
             {productsLoading ? (
               <LoadingSpinner />
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="admin-products-grid">
                 {products
                   .filter(p => inventoryCategory === 'all' || p.category === inventoryCategory)
                   .map(p => (
-                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--divider)' }}>
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#fafafa', borderRadius: '12px', border: '1px solid #eee' }}>
                       <div>
-                        <div style={{ fontWeight: 'bold' }}>{p.name}</div>
+                        <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{p.name}</div>
                         <div className="text-xs text-secondary">₱{p.price} • {p.category === 'cake' ? '🍰 TIRAMISU' : '🥤 MILKSHAKE'}</div>
                       </div>
                       
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                         {/* Stock Counter Control */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#f8f0f2', border: '1px solid var(--border)', borderRadius: '20px', padding: '2px 8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#fff', border: '1px solid var(--border)', borderRadius: '20px', padding: '2px 6px' }}>
                           <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginRight: '2px' }}>Qty:</span>
                           <button
                             onClick={() => handleUpdateStock(p.id, (p.stock || 0) - 1)}
                             className="qty-btn"
-                            style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', border: '1px solid #ddd', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
+                            style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#f5f5f5', border: '1px solid #ddd', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
                           >
                             -
                           </button>
@@ -842,12 +885,12 @@ export default function AdminPage() {
                             type="number"
                             value={p.stock !== undefined ? p.stock : 0}
                             onChange={(e) => handleUpdateStock(p.id, e.target.value)}
-                            style={{ width: '36px', border: 'none', background: 'transparent', textAlign: 'center', fontWeight: 'bold', fontSize: '13px' }}
+                            style={{ width: '32px', border: 'none', background: 'transparent', textAlign: 'center', fontWeight: 'bold', fontSize: '13px' }}
                           />
                           <button
                             onClick={() => handleUpdateStock(p.id, (p.stock || 0) + 1)}
                             className="qty-btn"
-                            style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', border: '1px solid #ddd', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
+                            style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#f5f5f5', border: '1px solid #ddd', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
                           >
                             +
                           </button>
@@ -856,7 +899,7 @@ export default function AdminPage() {
                         <button
                           onClick={() => handleToggleProduct(p.id, p.available)}
                           className={`btn btn-sm ${p.available ? 'btn-primary' : 'btn-secondary'}`}
-                          style={{ minWidth: '90px' }}
+                          style={{ minWidth: '80px', padding: '6px 10px', fontSize: '12px' }}
                         >
                           {p.available ? 'Active' : 'Sold Out'}
                         </button>
