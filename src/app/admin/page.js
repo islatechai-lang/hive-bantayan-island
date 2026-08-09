@@ -34,6 +34,25 @@ export default function AdminPage() {
   const [viewingReceiptUrl, setViewingReceiptUrl] = useState(null);
 
   const initialLoadRef = useRef(true);
+  const assignRef = useRef(null);
+
+  // Close rider assignment dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (assignRef.current && !assignRef.current.contains(event.target)) {
+        setAssigningOrderId(null);
+      }
+    };
+
+    if (assigningOrderId) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [assigningOrderId]);
 
   // Broadcast Notification Handler to all registered customer app devices
   const handleSendBroadcast = async (type) => {
@@ -699,7 +718,7 @@ export default function AdminPage() {
                     {/* Assign to Rider section */}
                     <div style={{ position: 'relative' }}>
                       {assigningOrderId === order.id ? (
-                        <div className="rider-assign-dropdown">
+                        <div ref={assignRef} className="rider-assign-dropdown">
                           <div className="rider-assign-header">
                             <span style={{ fontWeight: 600, fontSize: '12px' }}>Assign to rider:</span>
                             <button onClick={() => setAssigningOrderId(null)} className="btn-close-assign">✕</button>
@@ -918,7 +937,7 @@ export default function AdminPage() {
           {activeDeliveries.length === 0 ? (
             <div className="text-center text-secondary py-xl" style={{ padding: '60px 0' }}>No active deliveries on road</div>
           ) : (
-            <div className="flex flex-col gap-md">
+            <div className="admin-orders-grid">
               {activeDeliveries.map(order => (
                 <div key={order.id} className="card">
                   <div className="flex justify-between items-center mb-sm">
@@ -973,7 +992,7 @@ export default function AdminPage() {
                 <p className="text-xs" style={{ marginTop: '4px' }}>Share the rider link with your delivery team</p>
               </div>
             ) : (
-              <div className="flex flex-col gap-sm">
+              <div className="admin-products-grid">
                 {riders.map(rider => {
                   const isOnline = rider.lastSeen && (Date.now() - new Date(rider.lastSeen).getTime() < 120000);
                   const assignedCount = orders.filter(o => o.assignedRiderId === rider.id).length;
