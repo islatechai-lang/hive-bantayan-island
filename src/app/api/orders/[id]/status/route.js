@@ -88,20 +88,33 @@ export async function PATCH(request, { params }) {
         pushContent = `Your order status changed to ${status}`;
     }
 
-    try {
-      // OneSignal Rest API push using customer's uid as target external alias id
-      const pushResult = await sendPushNotification({
-        heading: pushHeading,
-        content: pushContent,
-        externalUserIds: [orderData.userId],
-        url: 'https://bantayan-hive-island.vercel.app/orders'
-      });
-      console.log(`Push notification sent to user: ${orderData.userId}`, pushResult);
-    } catch (pushError) {
-      console.error('Failed to send push notification via OneSignal API:', pushError);
+    let pushResult = null;
+    let pushErrorDetails = null;
+
+    if (orderData.userId) {
+      try {
+        pushResult = await sendPushNotification({
+          heading: pushHeading,
+          content: pushContent,
+          externalUserIds: [orderData.userId],
+          url: 'https://bantayan-hive-island.vercel.app/orders'
+        });
+        console.log(`Push notification sent to user: ${orderData.userId}`, pushResult);
+      } catch (pushError) {
+        console.error('Failed to send push notification via OneSignal API:', pushError);
+        pushErrorDetails = pushError.message || String(pushError);
+      }
+    } else {
+      pushErrorDetails = 'Order document has no userId field';
     }
 
-    return NextResponse.json({ success: true, message: 'Status updated and notified' });
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Status updated',
+      targetUserId: orderData.userId || null,
+      pushResult,
+      pushError: pushErrorDetails
+    });
   } catch (error) {
     console.error('Update status API error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

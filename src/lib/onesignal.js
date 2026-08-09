@@ -18,12 +18,18 @@ export async function requestNotificationPermission() {
     try {
       if (typeof bridge.onesignal.requestPermission === 'function') {
         bridge.onesignal.requestPermission();
+      } else if (typeof bridge.onesignal.register === 'function') {
+        bridge.onesignal.register();
       }
       return true;
     } catch (e) {
       console.warn('OneSignal permission request failed:', e);
       return false;
     }
+  } else if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission !== 'granted') {
+    try {
+      await Notification.requestPermission();
+    } catch (_) {}
   }
   return false;
 }
@@ -33,18 +39,30 @@ export async function setUserExternalId(userId) {
   const bridge = getMedianBridge();
   if (bridge?.onesignal) {
     try {
+      console.log('🔗 Registering OneSignal user ID with Median bridge:', userId);
+      // Median v5 SDK login method
+      if (typeof bridge.onesignal.login === 'function') {
+        bridge.onesignal.login(userId);
+      }
+      // Median externalUserId methods
       if (typeof bridge.onesignal.externalUserId === 'function') {
-        bridge.onesignal.externalUserId(userId);
+        try { bridge.onesignal.externalUserId(userId); } catch (_) {}
+        try { bridge.onesignal.externalUserId({ externalId: userId }); } catch (_) {}
       }
       if (typeof bridge.onesignal.setExternalUserId === 'function') {
-        bridge.onesignal.setExternalUserId(userId);
+        try { bridge.onesignal.setExternalUserId(userId); } catch (_) {}
       }
-      console.log('OneSignal externalUserId registered:', userId);
       return true;
     } catch (e) {
       console.warn('OneSignal setExternalUserId failed:', e);
       return false;
     }
+  } else if (typeof window !== 'undefined' && window.OneSignal) {
+    try {
+      if (typeof window.OneSignal.login === 'function') {
+        window.OneSignal.login(userId);
+      }
+    } catch (_) {}
   }
   return false;
 }
@@ -75,7 +93,7 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
 
   if (!apiKey || !appId) {
     console.warn('OneSignal API Key or App ID is missing in environment variables.');
-    return { error: 'Missing ONESIGNAL_API_KEY or ONESIGNAL_APP_ID' };
+    return { error: 'Missing ONESIGNAL_API_KEY or ONESIGNAL_APP_ID env vars' };
   }
 
   const payload = {
@@ -87,11 +105,13 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
       external_id: externalUserIds,
     },
     target_channel: 'push',
+    channel_for_external_user_ids: 'push',
     ...(url && { url }),
   };
 
   try {
-    const response = await fetch('https://onesignal.com/api/v1/notifications', {
+    // Attempt 1: Authorization: Key header format
+    let response = await fetch('https://onesignal.com/api/v1/notifications', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
@@ -100,12 +120,13 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
       body: JSON.stringify(payload),
     });
 
-    const data = await response.json();
-    console.log('OneSignal push notification API result:', response.status, data);
+    let data = await response.json();
+    console.log('OneSignal push API (Key auth) status:', response.status, data);
 
-    // Fallback attempt with Basic authorization format if Key header fails
-    if (!response.ok && (data?.errors?.includes?.('Invalid authorization header') || response.status === 401)) {
-      const fallbackRes = await fetch('https://onesignal.com/api/v1/notifications', {
+    // Attempt 2: Authorization: Basic header fallback if Key header is rejected
+    if (!response.ok && (response.status === 401 || data?.errors?.includes?.('Invalid authorization header'))) {
+      console.log('Retrying OneSignal push API with Basic auth header...');
+      response = await fetch('https://onesignal.com/api/v1/notifications', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
@@ -113,12 +134,17 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
         },
         body: JSON.stringify(payload),
       });
-      return fallbackRes.json();
+      data = await response.json();
+      console.log('OneSignal push API (Basic auth) status:', response.status, data);
     }
 
-    return data;
+    return {
+      status: response.status,
+      ok: response.ok,
+      data,
+    };
   } catch (err) {
     console.error('Error sending OneSignal push notification:', err);
-    return { error: err.message };
+    return { error: err.message || String(err) };
   }
 }

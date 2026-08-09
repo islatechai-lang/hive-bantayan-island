@@ -186,11 +186,20 @@ export default function AdminPage() {
         body: JSON.stringify({ status: newStatus })
       });
 
-      if (!res.ok) throw new Error('Status API error');
-      
-      showToast(`Order status updated to ${newStatus.replace('_', ' ')}`, 'success');
+      const data = await res.json();
+      console.log('🔔 [Admin] Status Update API & OneSignal Result:', data);
+
+      if (!res.ok) throw new Error(data.error || 'Status API error');
+
+      const recipients = data.pushResult?.data?.recipients;
+      if (recipients === 0) {
+        console.warn('⚠️ Push notification delivered to 0 recipients. The customer app device may not have registered its external User ID with OneSignal yet.');
+        showToast(`Status updated (Push: 0 devices reached)`, 'info');
+      } else {
+        showToast(`Order status updated to ${newStatus.replace('_', ' ')}`, 'success');
+      }
     } catch (error) {
-      console.error(error);
+      console.error('Status update error:', error);
       showToast('Failed to update status', 'error');
     }
   };
