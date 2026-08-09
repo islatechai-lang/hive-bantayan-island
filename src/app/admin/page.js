@@ -25,12 +25,35 @@ export default function AdminPage() {
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('preparing');
+  const [inventoryCategory, setInventoryCategory] = useState('all'); // all | cake | milkshake
+  const [broadcasting, setBroadcasting] = useState(null); // null | 'restock' | 'open' | 'closed'
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [assigningOrderId, setAssigningOrderId] = useState(null);
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
   const [testingPush, setTestingPush] = useState(false);
 
   const initialLoadRef = useRef(true);
+
+  // Broadcast Notification Handler to all registered customer app devices
+  const handleSendBroadcast = async (type) => {
+    setBroadcasting(type);
+    try {
+      const res = await fetch('/api/admin/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send broadcast');
+
+      showToast(`📢 ${type.toUpperCase()} notification sent to all app customers!`, 'success');
+    } catch (err) {
+      console.error('Broadcast error:', err);
+      showToast('Failed to send broadcast: ' + err.message, 'error');
+    } finally {
+      setBroadcasting(null);
+    }
+  };
 
   // Test OneSignal Push notification endpoint
   const handleTestPushNotification = async () => {
@@ -637,59 +660,158 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Tab Contents: Menu Inventory with Stock and Sold Out controls */}
+      {/* Tab Contents: Menu Inventory with Tiramisu & Milkshakes tabs and Broadcast Push buttons */}
       {activeTab === 'products' && (
-        <div className="card">
-          <h3 className="section-title">Menu Inventory & Stocks</h3>
-          {productsLoading ? (
-            <LoadingSpinner />
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {products.map(p => (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--divider)' }}>
-                  <div>
-                    <div style={{ fontWeight: 'bold' }}>{p.name}</div>
-                    <div className="text-xs text-secondary">₱{p.price} • {p.category.toUpperCase()}</div>
-                  </div>
-                  
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    {/* Stock Counter Control */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#f8f0f2', border: '1px solid var(--border)', borderRadius: '20px', padding: '2px 8px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginRight: '2px' }}>Qty:</span>
-                      <button
-                        onClick={() => handleUpdateStock(p.id, (p.stock || 0) - 1)}
-                        className="qty-btn"
-                        style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', border: '1px solid #ddd', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
-                      >
-                        -
-                      </button>
-                      <input
-                        type="number"
-                        value={p.stock !== undefined ? p.stock : 0}
-                        onChange={(e) => handleUpdateStock(p.id, e.target.value)}
-                        style={{ width: '36px', border: 'none', background: 'transparent', textAlign: 'center', fontWeight: 'bold', fontSize: '13px' }}
-                      />
-                      <button
-                        onClick={() => handleUpdateStock(p.id, (p.stock || 0) + 1)}
-                        className="qty-btn"
-                        style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', border: '1px solid #ddd', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
-                      >
-                        +
-                      </button>
-                    </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Broadcast Push Notifications Card */}
+          <div className="card" style={{ background: 'linear-gradient(135deg, #fff5f7 0%, #fff 100%)', border: '1px solid #f8d7da' }}>
+            <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent)', marginBottom: '8px' }}>
+              📢 Broadcast Customer Push Notifications
+            </h3>
+            <p className="text-xs text-secondary mb-md">
+              Send an instant push notification alert to all app customers on their phones with 1-click.
+            </p>
 
-                    <button
-                      onClick={() => handleToggleProduct(p.id, p.available)}
-                      className={`btn btn-sm ${p.available ? 'btn-primary' : 'btn-secondary'}`}
-                      style={{ minWidth: '90px' }}
-                    >
-                      {p.available ? 'Active' : 'Sold Out'}
-                    </button>
-                  </div>
-                </div>
-              ))}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
+              <button
+                onClick={() => handleSendBroadcast('restock')}
+                disabled={broadcasting !== null}
+                className="btn btn-sm"
+                style={{ background: '#e83e8c', color: '#fff', border: 'none', borderRadius: '20px', padding: '10px 14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                🍰 {broadcasting === 'restock' ? 'Broadcasting...' : 'Broadcast Restock'}
+              </button>
+
+              <button
+                onClick={() => handleSendBroadcast('open')}
+                disabled={broadcasting !== null}
+                className="btn btn-sm"
+                style={{ background: '#28a745', color: '#fff', border: 'none', borderRadius: '20px', padding: '10px 14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                🟢 {broadcasting === 'open' ? 'Broadcasting...' : 'Broadcast Store Open'}
+              </button>
+
+              <button
+                onClick={() => handleSendBroadcast('closed')}
+                disabled={broadcasting !== null}
+                className="btn btn-sm"
+                style={{ background: '#dc3545', color: '#fff', border: 'none', borderRadius: '20px', padding: '10px 14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                🔴 {broadcasting === 'closed' ? 'Broadcasting...' : 'Broadcast Store Closed'}
+              </button>
             </div>
-          )}
+          </div>
+
+          {/* Menu Inventory Card with Category Filter Tabs */}
+          <div className="card">
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '16px' }}>
+              <h3 className="section-title" style={{ margin: 0 }}>Menu Inventory & Stock</h3>
+              
+              {/* Category Filter Tabs */}
+              <div style={{ display: 'flex', gap: '6px', background: '#f5f5f5', padding: '4px', borderRadius: '20px' }}>
+                <button
+                  onClick={() => setInventoryCategory('all')}
+                  className={`btn-xs ${inventoryCategory === 'all' ? 'active' : ''}`}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '16px',
+                    border: 'none',
+                    fontWeight: 600,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    background: inventoryCategory === 'all' ? 'var(--accent)' : 'transparent',
+                    color: inventoryCategory === 'all' ? '#fff' : 'var(--text-secondary)'
+                  }}
+                >
+                  All ({products.length})
+                </button>
+                <button
+                  onClick={() => setInventoryCategory('cake')}
+                  className={`btn-xs ${inventoryCategory === 'cake' ? 'active' : ''}`}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '16px',
+                    border: 'none',
+                    fontWeight: 600,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    background: inventoryCategory === 'cake' ? 'var(--accent)' : 'transparent',
+                    color: inventoryCategory === 'cake' ? '#fff' : 'var(--text-secondary)'
+                  }}
+                >
+                  🍰 Tiramisu ({products.filter(p => p.category === 'cake').length})
+                </button>
+                <button
+                  onClick={() => setInventoryCategory('milkshake')}
+                  className={`btn-xs ${inventoryCategory === 'milkshake' ? 'active' : ''}`}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '16px',
+                    border: 'none',
+                    fontWeight: 600,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    background: inventoryCategory === 'milkshake' ? 'var(--accent)' : 'transparent',
+                    color: inventoryCategory === 'milkshake' ? '#fff' : 'var(--text-secondary)'
+                  }}
+                >
+                  🥤 Milkshakes ({products.filter(p => p.category === 'milkshake').length})
+                </button>
+              </div>
+            </div>
+
+            {productsLoading ? (
+              <LoadingSpinner />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {products
+                  .filter(p => inventoryCategory === 'all' || p.category === inventoryCategory)
+                  .map(p => (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--divider)' }}>
+                      <div>
+                        <div style={{ fontWeight: 'bold' }}>{p.name}</div>
+                        <div className="text-xs text-secondary">₱{p.price} • {p.category === 'cake' ? '🍰 TIRAMISU' : '🥤 MILKSHAKE'}</div>
+                      </div>
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        {/* Stock Counter Control */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#f8f0f2', border: '1px solid var(--border)', borderRadius: '20px', padding: '2px 8px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginRight: '2px' }}>Qty:</span>
+                          <button
+                            onClick={() => handleUpdateStock(p.id, (p.stock || 0) - 1)}
+                            className="qty-btn"
+                            style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', border: '1px solid #ddd', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            value={p.stock !== undefined ? p.stock : 0}
+                            onChange={(e) => handleUpdateStock(p.id, e.target.value)}
+                            style={{ width: '36px', border: 'none', background: 'transparent', textAlign: 'center', fontWeight: 'bold', fontSize: '13px' }}
+                          />
+                          <button
+                            onClick={() => handleUpdateStock(p.id, (p.stock || 0) + 1)}
+                            className="qty-btn"
+                            style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', border: '1px solid #ddd', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <button
+                          onClick={() => handleToggleProduct(p.id, p.available)}
+                          className={`btn btn-sm ${p.available ? 'btn-primary' : 'btn-secondary'}`}
+                          style={{ minWidth: '90px' }}
+                        >
+                          {p.available ? 'Active' : 'Sold Out'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
