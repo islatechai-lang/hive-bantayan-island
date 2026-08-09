@@ -53,13 +53,13 @@ export default function OrderSuccessPage() {
       <div className="text-center mb-lg">
         {/* Clean Standalone Motorcycle with Speed Trail Emoji */}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
-          <span style={{ fontSize: '3.6rem', display: 'inline-block', transform: 'scaleX(-1)' }} title="Rider on the way">
-            💨🛵
+          <span style={{ fontSize: '3.6rem', display: 'inline-block' }} title="Rider on the way">
+            🛵💨
           </span>
         </div>
 
         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 0.5rem' }}>
-          Rider is on its way! 🍰
+          Rider is on its way!
         </h1>
         <p className="text-secondary" style={{ fontSize: '1rem', margin: 0 }}>
           Your order has been received and your rider will arrive in <strong style={{ color: 'var(--accent)' }}>10-20 mins</strong>!

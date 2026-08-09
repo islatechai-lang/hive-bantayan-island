@@ -103,7 +103,13 @@ export async function POST(request) {
     // Write final order doc to Firestore if not already passed from client
     let orderId = orderData.orderId;
     if (!orderId && adminDb) {
-      const docRef = await adminDb.collection('orders').add(finalOrderData);
+      const docRef = await adminDb.collection('orders').add({
+        ...orderData,
+        status: finalStatus,
+        aiVerification: aiVerificationResult,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
       orderId = docRef.id;
     }
 
@@ -164,7 +170,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      orderId: docRef.id,
+      orderId: orderId,
       status: finalStatus,
       aiVerification: aiVerificationResult
     });
