@@ -82,9 +82,7 @@ export async function PATCH(request, { params }) {
         break;
       case 'cancelled':
         pushHeading = 'Order Cancelled ❌';
-        pushContent = orderData.paymentMethod === 'gcash'
-          ? `Your order of ${orderTotalFormatted} was cancelled. If you sent a payment, please contact support.`
-          : `Your order of ${orderTotalFormatted} has been cancelled.`;
+        pushContent = 'Your order was cancelled by admin. If you believe this is a mistake, please contact support.';
         break;
       default:
         pushContent = `Your order status changed to ${status}`;
