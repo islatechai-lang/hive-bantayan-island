@@ -44,9 +44,18 @@ export default function AdminPage() {
         body: JSON.stringify({ type })
       });
       const data = await res.json();
+      console.log('📢 [Admin] Broadcast API & OneSignal Result:', data);
+
       if (!res.ok) throw new Error(data.error || 'Failed to send broadcast');
 
-      showToast(`📢 ${type.toUpperCase()} notification sent to all app customers!`, 'success');
+      const recipients = data.pushResult?.data?.recipients;
+      if (recipients === 0) {
+        showToast(`📢 ${type.toUpperCase()} alert sent (0 registered devices reached)`, 'info');
+      } else if (recipients > 0) {
+        showToast(`📢 ${type.toUpperCase()} broadcast sent to ${recipients} device(s)!`, 'success');
+      } else {
+        showToast(`📢 ${type.toUpperCase()} notification sent to all app customers!`, 'success');
+      }
     } catch (err) {
       console.error('Broadcast error:', err);
       showToast('Failed to send broadcast: ' + err.message, 'error');
