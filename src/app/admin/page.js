@@ -24,13 +24,14 @@ export default function AdminPage() {
   const [riders, setRiders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('preparing');
+  const [statusFilter, setStatusFilter] = useState('pending');
   const [inventoryCategory, setInventoryCategory] = useState('all'); // all | cake | milkshake
   const [broadcasting, setBroadcasting] = useState(null); // null | 'restock' | 'open' | 'closed'
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [assigningOrderId, setAssigningOrderId] = useState(null);
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
   const [testingPush, setTestingPush] = useState(false);
+  const [viewingReceiptUrl, setViewingReceiptUrl] = useState(null);
 
   const initialLoadRef = useRef(true);
 
@@ -467,13 +468,13 @@ export default function AdminPage() {
         <div className="flex flex-col gap-md">
           {/* Status Filters */}
           <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', WebkitOverflowScrolling: 'touch' }}>
-            {['preparing', 'out_for_delivery', 'delivered', 'cancelled', 'all'].map(f => (
+            {['pending', 'preparing', 'out_for_delivery', 'delivered', 'cancelled', 'all'].map(f => (
               <button
                 key={f}
                 onClick={() => setStatusFilter(f)}
                 className={`filter-pill ${statusFilter === f ? 'active' : ''}`}
               >
-                {f.replace('_', ' ').toUpperCase()}
+                {f === 'pending' ? '⏳ PENDING REVIEW' : f.replace('_', ' ').toUpperCase()}
               </button>
             ))}
           </div>
@@ -517,16 +518,39 @@ export default function AdminPage() {
                   </div>
 
                   <div style={{ marginBottom: '16px', fontSize: '13px' }}>
-                    <strong>Payment:</strong> <span className="text-secondary">{order.paymentMethod.toUpperCase()}</span>
-                    {order.paymentMethod === 'gcash' && order.gcashReceiptUrl && (
-                      <div style={{ marginTop: '4px' }}>
-                        <a href={order.gcashReceiptUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>
-                          View Uploaded GCash Receipt 📸
-                        </a>
-                        {order.aiVerification && (
-                          <div style={{ marginTop: '6px', padding: '6px 10px', background: order.aiVerification.valid ? '#e8f7ef' : '#fdecec', border: `1px solid ${order.aiVerification.valid ? '#bfe3cd' : '#f8c0c0'}`, borderRadius: '6px', fontSize: '12px' }}>
-                            <strong style={{ color: order.aiVerification.valid ? '#246b38' : '#c0392b' }}>AI Receipt Review:</strong>
-                            <p style={{ margin: '2px 0 0', color: 'var(--text-primary)' }}>{order.aiVerification.reason}</p>
+                    <strong>Payment:</strong> <span className="text-secondary" style={{ fontWeight: 600 }}>{order.paymentMethod ? order.paymentMethod.toUpperCase() : 'COD'}</span>
+                    {order.paymentMethod === 'gcash' && (
+                      <div style={{ marginTop: '8px', padding: '10px', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #e9ecef' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                          <strong style={{ color: '#2b2b2b', fontSize: '12px' }}>📱 Customer GCash Receipt:</strong>
+                          {order.gcashReceiptUrl && (
+                            <button
+                              onClick={() => setViewingReceiptUrl(order.gcashReceiptUrl)}
+                              className="btn btn-xs"
+                              style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', background: '#e83e8c', color: '#fff', border: 'none', fontWeight: 600 }}
+                            >
+                              🔍 View Full Image
+                            </button>
+                          )}
+                        </div>
+
+                        {order.gcashReceiptUrl ? (
+                          <div 
+                            onClick={() => setViewingReceiptUrl(order.gcashReceiptUrl)}
+                            style={{ cursor: 'pointer', position: 'relative', width: '100%', maxHeight: '160px', overflow: 'hidden', borderRadius: '6px', border: '1px solid #ddd', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            <img
+                              src={order.gcashReceiptUrl}
+                              alt="GCash Receipt"
+                              style={{ width: '100%', height: 'auto', maxHeight: '160px', objectFit: 'contain' }}
+                            />
+                            <div style={{ position: 'absolute', bottom: 4, right: 6, background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' }}>
+                              Tap to inspect receipt
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '12px', color: '#721c24', background: '#f8d7da', padding: '6px 10px', borderRadius: '4px' }}>
+                            ⚠️ No receipt attached yet
                           </div>
                         )}
                       </div>
@@ -551,8 +575,29 @@ export default function AdminPage() {
                   )}
 
                   <div className="admin-order-actions" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {/* Simplified Status Action Buttons */}
+                    {/* Simplified Status Action Buttons with Pending Manual Review */}
                     <div style={{ display: 'flex', gap: '6px' }}>
+                      {order.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => handleStatusChange(order.id, 'preparing')}
+                            disabled={updatingStatusId === order.id}
+                            className="btn btn-sm"
+                            style={{ flex: 2, background: '#28a745', color: '#fff', border: 'none', fontWeight: 600, padding: '8px 10px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                          >
+                            ✅ Approve Payment & Prepare
+                          </button>
+                          <button
+                            onClick={() => handleStatusChange(order.id, 'cancelled')}
+                            disabled={updatingStatusId === order.id}
+                            className="btn btn-sm"
+                            style={{ flex: 1, background: '#fff0f0', color: '#c0392b', border: '1px solid #f8d7da', fontWeight: 600, padding: '8px 10px', fontSize: '13px' }}
+                          >
+                            ❌ Reject / Cancel
+                          </button>
+                        </>
+                      )}
+
                       {order.status === 'preparing' && (
                         <>
                           <button
@@ -936,6 +981,56 @@ export default function AdminPage() {
             >
               <code>{typeof window !== 'undefined' ? `${window.location.origin}/admin/rider` : '/admin/rider'}</code>
               <span className="text-xs" style={{ color: 'var(--accent)' }}>Tap to copy</span>
+            </div>
+      {/* GCash Receipt Lightbox Modal for High Resolution Inspection */}
+      {viewingReceiptUrl && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+          onClick={() => setViewingReceiptUrl(null)}
+        >
+          <div 
+            style={{
+              position: 'relative',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              background: '#fff',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '8px', borderBottom: '1px solid #eee' }}>
+              <h4 style={{ margin: 0, fontSize: '15px', color: '#333', fontWeight: 'bold' }}>📱 Customer GCash Payment Receipt</h4>
+              <button
+                onClick={() => setViewingReceiptUrl(null)}
+                style={{ background: '#f0f0f0', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ overflow: 'auto', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img
+                src={viewingReceiptUrl}
+                alt="Customer GCash Receipt Full Resolution"
+                style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', display: 'block', borderRadius: '6px' }}
+              />
             </div>
           </div>
         </div>

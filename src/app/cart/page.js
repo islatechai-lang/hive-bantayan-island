@@ -217,14 +217,14 @@ export default function CartPage() {
         })
       }).catch(err => console.warn('Email dispatch warning (non-blocking):', err));
 
-      // 3. For GCash, kick off AI receipt verification (non-blocking)
+      // 3. For GCash, attach receipt for manual admin review
       if (paymentMethod === 'gcash' && receiptUrl) {
         fetch('/api/verify-receipt', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           keepalive: true,
-          body: JSON.stringify({ orderId: newOrderId, gcashReceiptUrl: receiptUrl, total: getTotal() })
-        }).catch(err => console.warn('AI verification request failed (non-blocking):', err));
+          body: JSON.stringify({ orderId: newOrderId, gcashReceiptUrl: receiptUrl })
+        }).catch(err => console.warn('Attach receipt request failed (non-blocking):', err));
       }
       
       showToast('Order placed! Your rider will navigate to your GPS pin.', 'success');
