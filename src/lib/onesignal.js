@@ -147,7 +147,7 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
     'https://api.onesignal.com/notifications',
   ];
 
-  const authHeaderTypes = ['Key', 'Basic', 'Bearer'];
+  const authHeaderTypes = ['Bearer', 'Key', 'Basic'];
 
   let lastResult = null;
 
@@ -174,8 +174,39 @@ export async function sendPushNotification({ heading, content, externalUserIds, 
           data,
         };
 
-        if (res.ok && !data.errors) {
-          return lastResult;
+        if (res.ok) {
+          // If specific user ID wasn't subscribed yet, fallback to Subscribed Users segment so notification arrives!
+          if (data?.errors && (data.errors.includes('All included players are not subscribed') || data.errors.includes('All included players are invalid')) && externalUserIds && externalUserIds.length > 0) {
+            console.warn('⚠️ User ID not directly subscribed in OneSignal yet. Retrying with Subscribed Users segment...');
+            const fallbackRes = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json; charset=utf-8',
+                'Authorization': `${headerType} ${apiKey}`,
+              },
+              body: JSON.stringify({
+                app_id: appId,
+                headings: { en: heading },
+                contents: { en: content },
+                included_segments: ['Subscribed Users'],
+                target_channel: 'push',
+                ...(url && { url }),
+              }),
+            });
+            const fallbackData = await fallbackRes.json();
+            return {
+              status: fallbackRes.status,
+              ok: fallbackRes.ok,
+              endpoint,
+              authMethodUsed: headerType,
+              data: fallbackData,
+              fallbackSegmentUsed: true,
+            };
+          }
+
+          if (!data.errors) {
+            return lastResult;
+          }
         }
       } catch (e) {
         console.warn(`OneSignal attempt failed (${endpoint} | ${headerType}):`, e);

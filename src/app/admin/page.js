@@ -518,66 +518,66 @@ export default function AdminPage() {
                     </div>
                   )}
 
-                  <div className="admin-order-actions" style={{ flexDirection: 'column', gap: '8px', alignItems: 'stretch' }}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {order.status !== 'preparing' && (
-                        <button
-                          onClick={() => handleStatusChange(order.id, 'preparing')}
-                          disabled={updatingStatusId === order.id}
-                          className="btn btn-sm"
-                          style={{ background: '#fff3cd', color: '#856404', border: '1px solid #ffeeba', fontWeight: 600, flex: 1, padding: '6px 8px', fontSize: '12px' }}
-                        >
-                          👨‍🍳 Start Preparing
-                        </button>
+                  <div className="admin-order-actions" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {/* Simplified Status Action Buttons */}
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {order.status === 'preparing' && (
+                        <>
+                          <button
+                            onClick={() => handleStatusChange(order.id, 'out_for_delivery')}
+                            disabled={updatingStatusId === order.id}
+                            className="btn btn-sm btn-primary"
+                            style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 600, padding: '8px 10px', fontSize: '13px' }}
+                          >
+                            🛵 Out for Delivery
+                          </button>
+                          <button
+                            onClick={() => handleStatusChange(order.id, 'cancelled')}
+                            disabled={updatingStatusId === order.id}
+                            className="btn btn-sm"
+                            style={{ flex: 1, background: '#fff0f0', color: '#c0392b', border: '1px solid #f8d7da', fontWeight: 600, padding: '8px 10px', fontSize: '13px' }}
+                          >
+                            ❌ Cancel
+                          </button>
+                        </>
                       )}
-                      {order.status !== 'out_for_delivery' && (
-                        <button
-                          onClick={() => handleStatusChange(order.id, 'out_for_delivery')}
-                          disabled={updatingStatusId === order.id}
-                          className="btn btn-sm"
-                          style={{ background: '#cce5ff', color: '#004085', border: '1px solid #b8daff', fontWeight: 600, flex: 1, padding: '6px 8px', fontSize: '12px' }}
-                        >
-                          🛵 Out for Delivery
-                        </button>
+
+                      {order.status === 'out_for_delivery' && (
+                        <>
+                          <button
+                            onClick={() => handleStatusChange(order.id, 'delivered')}
+                            disabled={updatingStatusId === order.id}
+                            className="btn btn-sm"
+                            style={{ flex: 2, background: '#27ae60', color: '#fff', border: 'none', fontWeight: 600, padding: '8px 10px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                          >
+                            🍰 Mark as Delivered
+                          </button>
+                          <button
+                            onClick={() => handleStatusChange(order.id, 'cancelled')}
+                            disabled={updatingStatusId === order.id}
+                            className="btn btn-sm"
+                            style={{ flex: 1, background: '#fff0f0', color: '#c0392b', border: '1px solid #f8d7da', fontWeight: 600, padding: '8px 10px', fontSize: '13px' }}
+                          >
+                            ❌ Cancel
+                          </button>
+                        </>
                       )}
-                      {order.status !== 'delivered' && (
-                        <button
-                          onClick={() => handleStatusChange(order.id, 'delivered')}
-                          disabled={updatingStatusId === order.id}
-                          className="btn btn-sm"
-                          style={{ background: '#d4edda', color: '#155724', border: '1px solid #c3e6cb', fontWeight: 600, flex: 1, padding: '6px 8px', fontSize: '12px' }}
-                        >
-                          🍰 Delivered
-                        </button>
+
+                      {order.status === 'delivered' && (
+                        <div style={{ flex: 1, padding: '8px 12px', background: '#e8f7ef', color: '#27ae60', borderRadius: '8px', fontWeight: 600, fontSize: '13px', textAlign: 'center' }}>
+                          ✅ Order Complete & Delivered
+                        </div>
                       )}
-                      {order.status !== 'cancelled' && (
-                        <button
-                          onClick={() => handleStatusChange(order.id, 'cancelled')}
-                          disabled={updatingStatusId === order.id}
-                          className="btn btn-sm"
-                          style={{ background: '#f8d7da', color: '#721c24', border: '1px solid #f5c6cb', fontWeight: 600, flex: 1, padding: '6px 8px', fontSize: '12px' }}
-                        >
-                          ❌ Cancel
-                        </button>
+
+                      {order.status === 'cancelled' && (
+                        <div style={{ flex: 1, padding: '8px 12px', background: '#fdecec', color: '#c0392b', borderRadius: '8px', fontWeight: 600, fontSize: '13px', textAlign: 'center' }}>
+                          ❌ Order Cancelled
+                        </div>
                       )}
                     </div>
 
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <select
-                        className="status-select"
-                        value={order.status}
-                        disabled={updatingStatusId === order.id}
-                        onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                        style={{ flex: 1 }}
-                      >
-                        <option value="preparing">Start Preparing</option>
-                        <option value="out_for_delivery">Out for Delivery</option>
-                        <option value="delivered">Delivered</option>
-                        <option value="cancelled">Cancel Order</option>
-                      </select>
-
-                    {/* Assign to Rider dropdown */}
-                    <div style={{ position: 'relative', flex: 1 }}>
+                    {/* Assign to Rider section */}
+                    <div style={{ position: 'relative' }}>
                       {assigningOrderId === order.id ? (
                         <div className="rider-assign-dropdown">
                           <div className="rider-assign-header">
@@ -614,13 +614,12 @@ export default function AdminPage() {
                           style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                         >
                           <Truck size={14} />
-                          {order.assignedRiderName ? 'Reassign' : 'Assign Rider'}
+                          {order.assignedRiderName ? `Assigned: ${order.assignedRiderName} (Reassign)` : 'Assign Rider'}
                           <ChevronDown size={12} />
                         </button>
                       )}
                     </div>
                   </div>
-                </div>
 
                   <div style={{ marginTop: '8px' }}>
                     <Link 
