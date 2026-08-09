@@ -145,7 +145,7 @@ export async function POST(request) {
                 <ul style="line-height: 1.6;">${itemsListHtml}</ul>
 
                 <br/>
-                <a href="https://hive-bantayan-8598e.web.app/admin" style="display: inline-block; background: #EB687E; color: white; padding: 12px 24px; text-decoration: none; border-radius: 20px; font-weight: bold;">Open Admin Dashboard 🛵</a>
+                <a href="https://hive-bantayan-island.vercel.app/admin" style="display: inline-block; background: #EB687E; color: white; padding: 12px 24px; text-decoration: none; border-radius: 20px; font-weight: bold;">Open Admin Dashboard 🛵</a>
               </div>
             `
           })
