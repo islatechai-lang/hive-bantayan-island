@@ -13,7 +13,7 @@ export default function Header() {
   const { user } = useAuth();
   const cartCount = getCartCount();
 
-  if (pathname?.startsWith('/admin') || pathname === '/login') {
+  if (pathname?.startsWith('/admin') || pathname === '/login' || pathname === '/terms' || pathname === '/privacy') {
     return null;
   }
 
