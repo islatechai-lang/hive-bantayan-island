@@ -54,7 +54,7 @@ export default function DeleteAccountPage() {
           </li>
         </ol>
 
-        <h3 style={{ fontSize: '1.05rem', fontWeight 700, color: 'var(--text-primary)', margin: '20px 0 8px' }}>
+        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', margin: '20px 0 8px' }}>
           🔒 Data Retention &amp; Deletion Breakdown
         </h3>
         
