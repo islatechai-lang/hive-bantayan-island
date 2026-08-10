@@ -54,38 +54,57 @@ export default function MenuPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch products from Firestore in real-time with automatic database seeding if empty
+  // Fetch products from Firestore in real-time with automatic sync and obsolete product cleanup
   useEffect(() => {
     const q = query(collection(db, 'products'), orderBy('sortOrder', 'asc'));
     const unsubscribe = onSnapshot(q, async (querySnapshot) => {
-      if (querySnapshot.empty) {
-        // Seed the products database with default items
-        try {
-          const batch = writeBatch(db);
-          fallbackProducts.forEach((p) => {
-            const docRef = doc(db, 'products', p.id);
-            batch.set(docRef, {
-              name: p.name,
-              description: p.description,
-              price: p.price,
-              category: p.category,
-              image: p.image,
-              available: p.available !== undefined ? p.available : true,
-              stock: p.stock !== undefined ? p.stock : 20, // default stock count
-              sortOrder: p.sortOrder
-            }, { merge: true });
-          });
-          await batch.commit();
-        } catch (seedErr) {
-          console.error('Auto-seeding error:', seedErr);
+      const validIds = new Set(fallbackProducts.map(p => p.id));
+      const batch = writeBatch(db);
+      let needsBatchCommit = false;
+
+      // 1. Purge obsolete items from Firestore (e.g. matcha-tiramisu, strawberry-tiramisu)
+      querySnapshot.forEach((docSnap) => {
+        if (!validIds.has(docSnap.id)) {
+          batch.delete(doc(db, 'products', docSnap.id));
+          needsBatchCommit = true;
         }
-      } else {
-        const loadedProducts = [];
-        querySnapshot.forEach((doc) => {
-          loadedProducts.push({ id: doc.id, ...doc.data() });
-        });
-        setProducts(loadedProducts);
+      });
+
+      // 2. Ensure current products exist with updated details in Firestore
+      fallbackProducts.forEach((p) => {
+        const existingDoc = querySnapshot.docs.find(d => d.id === p.id);
+        if (!existingDoc || existingDoc.data().name !== p.name || existingDoc.data().price !== p.price || existingDoc.data().image !== p.image) {
+          const docRef = doc(db, 'products', p.id);
+          batch.set(docRef, {
+            name: p.name,
+            description: p.description,
+            price: p.price,
+            category: p.category,
+            image: p.image,
+            available: existingDoc?.data()?.available !== undefined ? existingDoc.data().available : true,
+            stock: existingDoc?.data()?.stock !== undefined ? existingDoc.data().stock : 20,
+            sortOrder: p.sortOrder
+          }, { merge: true });
+          needsBatchCommit = true;
+        }
+      });
+
+      if (needsBatchCommit) {
+        try {
+          await batch.commit();
+        } catch (syncErr) {
+          console.error('Error syncing products to Firestore:', syncErr);
+        }
       }
+
+      const loadedProducts = [];
+      querySnapshot.forEach((docSnap) => {
+        if (validIds.has(docSnap.id)) {
+          loadedProducts.push({ id: docSnap.id, ...docSnap.data() });
+        }
+      });
+
+      setProducts(loadedProducts.length > 0 ? loadedProducts : fallbackProducts);
       setLoading(false);
     }, (error) => {
       console.error('Error listening to products:', error);
