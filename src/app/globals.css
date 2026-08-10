@@ -2387,3 +2387,57 @@ ul, ol {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ============================================
+   Tablet & Large Screen Customer Optimization
+   ============================================ */
+@media (min-width: 600px) {
+  .app-container {
+    max-width: 840px;
+    margin: 0 auto;
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .product-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+
+  .floating-cart {
+    max-width: 480px;
+    left: 50%;
+    transform: translateX(-50%);
+    right: auto;
+  }
+
+  .product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .category-tabs {
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .category-tab {
+    padding: 12px 24px;
+    font-size: 0.95rem;
+  }
+
+  .header-container {
+    padding: 0 24px;
+  }
+}
+
+@media (min-width: 900px) {
+  .app-container {
+    max-width: 1120px;
+  }
+
+  .product-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+  }
+}
