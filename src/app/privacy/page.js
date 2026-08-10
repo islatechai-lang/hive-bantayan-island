@@ -8,20 +8,11 @@ export default function PrivacyPage() {
   return (
     <div className="page" style={{ maxWidth: '800px', margin: '0 auto' }}>
       {/* Header Bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-        <Link 
-          href="/" 
-          className="btn btn-secondary btn-sm"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '20px', padding: '8px 14px' }}
-        >
-          <ArrowLeft size={16} /> Back
-        </Link>
-        <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-            Privacy Policy
-          </h1>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Bantayan Hive • Official Policy</span>
-        </div>
+      <div style={{ marginBottom: '24px' }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+          Privacy Policy
+        </h1>
+        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Bantayan Hive • Official Policy</span>
       </div>
 
       {/* Policy Card */}
