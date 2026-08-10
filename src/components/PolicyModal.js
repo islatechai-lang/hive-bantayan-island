@@ -23,7 +23,7 @@ export default function PolicyModal({ type, onClose }) {
             <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
               {isTerms ? 'Terms of Service' : 'Privacy Policy'}
             </h2>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Bantayan Hive • Updated 2026</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Bantayan Hive • Updated August 8, 2026</span>
           </div>
         </div>
 
