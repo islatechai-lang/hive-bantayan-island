@@ -48,7 +48,7 @@ export default function PrivacyPage() {
           <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', margin: '8px 0 4px' }}>3. Data Protection &amp; Security</h3>
           <p style={{ margin: 0 }}>We use secure Firebase Authentication and encrypted SSL connections. We never sell, trade, or share your personal information with third parties.</p>
 
-          <h3 style={{ fontSize: '1.05rem', fontWeight 700, color: 'var(--text-primary)', margin: '8px 0 4px' }}>4. Location Tracking</h3>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', margin: '8px 0 4px' }}>4. Location Tracking</h3>
           <p style={{ margin: 0 }}>GPS location tracking is active only while placing an order or tracking a live delivery. You may disable location permissions in your browser settings at any time.</p>
         </div>
       </div>
