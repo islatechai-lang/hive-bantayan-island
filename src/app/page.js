@@ -81,6 +81,8 @@ export default function MenuPage() {
             price: p.price,
             category: p.category,
             image: p.image,
+            previewPosition: p.previewPosition || null,
+            imagePosition: p.imagePosition || null,
             available: existingDoc?.data()?.available !== undefined ? existingDoc.data().available : true,
             stock: existingDoc?.data()?.stock !== undefined ? existingDoc.data().stock : 20,
             sortOrder: p.sortOrder

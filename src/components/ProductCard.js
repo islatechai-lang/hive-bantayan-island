@@ -47,7 +47,21 @@ export default function ProductCard({ product }) {
     <>
       <div className="product-card" style={{ cursor: 'pointer' }} onClick={() => setShowModal(true)}>
         <div style={{ position: 'relative', width: '100%', aspectRatio: '1', borderRadius: '12px 12px 0 0', overflow: 'hidden' }}>
-          <Image src={product.image} alt={product.name} fill sizes="(max-width: 480px) 50vw, 240px" className="product-card-image" priority={product.sortOrder <= 4} />
+          <Image
+            src={product.image}
+            alt={product.name}
+            fill
+            sizes="(max-width: 480px) 50vw, 240px"
+            className="product-card-image"
+            style={
+              product.imagePosition
+                ? { objectPosition: product.imagePosition }
+                : (product.id === 'classic-tiramisu' || product.id === 'oreo-tiramisu')
+                ? { objectPosition: 'center 30%' }
+                : undefined
+            }
+            priority={product.sortOrder <= 4}
+          />
           {isSoldOut && (
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'var(--error)', fontSize: '0.9rem', letterSpacing: '0.5px' }}>
               SOLD OUT
@@ -97,7 +111,17 @@ export default function ProductCard({ product }) {
             </button>
 
             <div className="product-modal-img-wrapper">
-              <Image src={product.image} alt={product.name} fill sizes="(max-width: 480px) 100vw, 420px" style={{ objectFit: 'cover' }} priority />
+              <Image
+                src={product.image}
+                alt={product.name}
+                fill
+                sizes="(max-width: 480px) 100vw, 420px"
+                style={{
+                  objectFit: 'cover',
+                  objectPosition: product.previewPosition || product.imagePosition || ((product.id === 'classic-tiramisu' || product.id === 'oreo-tiramisu') ? 'center 30%' : 'center')
+                }}
+                priority
+              />
               {isSoldOut && (
                 <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'var(--error)', fontSize: '1.1rem' }}>
                   SOLD OUT
