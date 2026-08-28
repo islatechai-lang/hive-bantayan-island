@@ -274,6 +274,11 @@ export function AuthProvider({ children }) {
       },
       'expired-callback': () => {
         console.log('reCAPTCHA expired');
+        cleanupRecaptcha();
+      },
+      'error-callback': () => {
+        console.log('reCAPTCHA error');
+        cleanupRecaptcha();
       }
     });
 
@@ -303,9 +308,13 @@ export function AuthProvider({ children }) {
       } else if (error.code === 'auth/too-many-requests') {
         message = 'Too many attempts. Please try again later.';
       } else if (error.code === 'auth/captcha-check-failed') {
-        message = 'reCAPTCHA verification failed. Please refresh and try again.';
+        message = 'reCAPTCHA verification failed. Please try again.';
+      } else if (error.code === 'auth/invalid-app-credential') {
+        message = 'App verification failed. Please check authorized domains or disable ad blockers.';
       } else if (error.code === 'auth/quota-exceeded') {
         message = 'SMS quota exceeded. Please try again later.';
+      } else if (error.code === 'auth/network-request-failed') {
+        message = 'Network error. Please check your internet connection.';
       } else if (error.message) {
         message = error.message;
       }

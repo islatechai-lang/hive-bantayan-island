@@ -84,11 +84,7 @@ export default function LoginPage() {
     const formattedPhone = `+63${cleanPhone}`;
 
     try {
-      // Race against a 30-second timeout so the button never gets permanently stuck
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timed out. Please try again.')), 30000)
-      );
-      const result = await Promise.race([sendOTP(formattedPhone), timeoutPromise]);
+      const result = await sendOTP(formattedPhone);
       
       if (result.success) {
         showToast('OTP code sent successfully! Check your SMS.', 'success');
