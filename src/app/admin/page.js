@@ -124,8 +124,11 @@ export default function AdminPage() {
     const isAdmin = typeof window !== 'undefined' && localStorage.getItem('hive_admin_role') === 'true';
     if (isAdmin) {
       setIsAuthenticated(true);
+      if (!auth.currentUser) {
+        signInAnonymously(auth).catch((err) => console.warn('Admin auto-auth error:', err));
+      }
     }
-    const unsubscribe = onAuthStateChanged(auth, () => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       setAuthChecking(false);
     });
     setAuthChecking(false);

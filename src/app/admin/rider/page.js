@@ -51,6 +51,9 @@ export default function RiderPage() {
     } else if (isRider) {
       setIsAuthenticated(true);
     }
+    if (isRider && !auth.currentUser) {
+      signInAnonymously(auth).catch((err) => console.warn('Rider auto-auth error:', err));
+    }
     const unsubscribe = onAuthStateChanged(auth, () => {
       setAuthChecking(false);
     });
