@@ -11,7 +11,7 @@ import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
 export default function LoginPage() {
-  const { user, sendOTP, verifyOTP, updateUserName, loading } = useAuth();
+  const { user, sendOTP, verifyOTP, updateUserName, loading, cleanupRecaptcha } = useAuth();
   const { showToast } = useToast();
   const router = useRouter();
   
@@ -25,6 +25,13 @@ export default function LoginPage() {
   const [policyType, setPolicyType] = useState(null); // 'terms' | 'privacy' | null
   
   const otpRefs = useRef([]);
+
+  // Clean up reCAPTCHA on unmount
+  useEffect(() => {
+    return () => {
+      cleanupRecaptcha?.();
+    };
+  }, [cleanupRecaptcha]);
 
   // Redirect only if authenticated AND has a customized name set
   useEffect(() => {
@@ -298,6 +305,7 @@ export default function LoginPage() {
               type="button"
               className="btn btn-ghost btn-block mt-sm"
               onClick={() => {
+                cleanupRecaptcha?.();
                 setStep('phone');
                 setOtpCode(['', '', '', '', '', '']);
               }}

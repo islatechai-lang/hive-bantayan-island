@@ -234,13 +234,38 @@ export function AuthProvider({ children }) {
     return () => stopTracking();
   }, [startTracking, stopTracking]);
 
+  const recaptchaVerifierRef = useRef(null);
+
+  // Clean up any existing RecaptchaVerifier instance and DOM elements
+  const cleanupRecaptcha = useCallback(() => {
+    if (recaptchaVerifierRef.current) {
+      try {
+        recaptchaVerifierRef.current.clear();
+      } catch (e) {
+        console.warn('Error clearing recaptcha verifier ref:', e);
+      }
+      recaptchaVerifierRef.current = null;
+    }
+    if (typeof window !== 'undefined' && window.recaptchaVerifier) {
+      try {
+        window.recaptchaVerifier.clear();
+      } catch (e) {
+        // ignore
+      }
+      window.recaptchaVerifier = null;
+    }
+    if (typeof document !== 'undefined') {
+      const container = document.getElementById('recaptcha-container');
+      if (container) {
+        container.innerHTML = '';
+      }
+    }
+  }, []);
+
   // Create a fresh RecaptchaVerifier each time we need one
   const setupRecaptcha = useCallback((containerId) => {
-    // Clear any existing recaptcha widgets in the container
-    const container = document.getElementById(containerId);
-    if (container) {
-      container.innerHTML = '';
-    }
+    // Clear any existing recaptcha widgets in the container and instance
+    cleanupRecaptcha();
 
     const verifier = new RecaptchaVerifier(auth, containerId, {
       size: 'invisible',
@@ -252,24 +277,24 @@ export function AuthProvider({ children }) {
       }
     });
 
+    recaptchaVerifierRef.current = verifier;
+    if (typeof window !== 'undefined') {
+      window.recaptchaVerifier = verifier;
+    }
+
     return verifier;
-  }, []);
+  }, [cleanupRecaptcha]);
 
   const sendOTP = async (phoneNumber) => {
-    let verifier = null;
     try {
-      verifier = setupRecaptcha('recaptcha-container');
+      const verifier = setupRecaptcha('recaptcha-container');
       const confirmation = await signInWithPhoneNumber(auth, phoneNumber, verifier);
       setConfirmationResult(confirmation);
       return { success: true };
     } catch (error) {
       console.error('sendOTP error:', error);
       // Clean up failed verifier
-      if (verifier) {
-        try { verifier.clear(); } catch (e) { /* ignore */ }
-      }
-      const container = document.getElementById('recaptcha-container');
-      if (container) container.innerHTML = '';
+      cleanupRecaptcha();
 
       // Return a user-friendly error message
       let message = 'Failed to send verification code.';
@@ -367,6 +392,7 @@ export function AuthProvider({ children }) {
       locationDenied,
       sendOTP,
       verifyOTP,
+      cleanupRecaptcha,
       signOut,
       updateUserName,
       updateUserAddress,
