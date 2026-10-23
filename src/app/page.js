@@ -231,22 +231,25 @@ export default function MenuPage() {
           </div>
 
           {category === 'milkshake' && (
-            <div className="suggest-flavor-banner">
-              <div className="suggest-flavor-header">
-                <span className="suggest-flavor-icon">💡</span>
-                <div>
-                  <h4 className="suggest-flavor-title">Craving Something We Don't Have Yet?</h4>
-                  <p className="suggest-flavor-desc">
-                    Burgers, loaded snacks, special shakes, or new desserts — tell us what you'd love delivered across Bantayan!
-                  </p>
-                </div>
-              </div>
-              <button 
+            <div style={{ textAlign: 'center', margin: '32px 0 16px', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+              Craving something we don't have yet?{' '}
+              <button
                 type="button"
                 onClick={() => setShowSuggestModal(true)}
-                className="suggest-flavor-btn"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  font: 'inherit',
+                  fontWeight: 700,
+                  color: 'var(--accent)',
+                  textDecoration: 'underline',
+                  textUnderlineOffset: '3px',
+                  cursor: 'pointer',
+                  display: 'inline',
+                }}
               >
-                <span>✨</span> Request Food or Drinks
+                Request something
               </button>
             </div>
           )}

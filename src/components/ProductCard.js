@@ -130,22 +130,6 @@ export default function ProductCard({ product }) {
             }
             priority={product.sortOrder <= 4}
           />
-          {isComingSoon && (
-            <>
-              <div className="product-coming-soon-badge">
-                <span>✦</span> Coming Soon
-              </div>
-              <button
-                type="button"
-                onClick={handleToggleInterest}
-                className={`product-card-heart-btn ${isWanted ? 'wanted' : ''}`}
-                aria-label="I want this item"
-                title={isWanted ? "You want this!" : "I want this!"}
-              >
-                <Heart size={15} fill={isWanted ? "#ef4444" : "rgba(0,0,0,0.3)"} color={isWanted ? "#ef4444" : "#ffffff"} />
-              </button>
-            </>
-          )}
           {isSoldOut && (
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'var(--error)', fontSize: '0.9rem', letterSpacing: '0.5px' }}>
               SOLD OUT
@@ -223,11 +207,6 @@ export default function ProductCard({ product }) {
                 }}
                 priority
               />
-              {isComingSoon && (
-                <div className="product-modal-coming-soon-badge">
-                  <span>✦</span> Coming Soon
-                </div>
-              )}
               {isSoldOut && (
                 <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'var(--error)', fontSize: '1.1rem' }}>
                   SOLD OUT
@@ -243,8 +222,8 @@ export default function ProductCard({ product }) {
                 </div>
                 <div style={{ marginTop: '4px' }}>
                   {isComingSoon ? (
-                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#c4622d', background: 'rgba(196, 98, 45, 0.12)', padding: '3px 10px', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                      ✨ Coming Soon — Launching in Bantayan!
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent)', background: 'rgba(196, 98, 45, 0.08)', padding: '2px 8px', borderRadius: '8px' }}>
+                      Coming Soon
                     </span>
                   ) : isSoldOut ? (
                     <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--error)', background: '#fdecec', padding: '2px 8px', borderRadius: '10px' }}>Out of Stock</span>
@@ -267,8 +246,8 @@ export default function ProductCard({ product }) {
                       onClick={handleToggleInterest}
                       className={`btn btn-block btn-pill ${isWanted ? 'btn-wanted-active' : 'btn-primary'}`}
                       style={{
-                        padding: '14px',
-                        fontSize: '0.96rem',
+                        padding: '13px',
+                        fontSize: '0.94rem',
                         fontWeight: 700,
                         display: 'flex',
                         alignItems: 'center',
@@ -278,15 +257,15 @@ export default function ProductCard({ product }) {
                         transition: 'all 0.2s ease',
                       }}
                     >
-                      <Heart size={18} fill={isWanted ? "#ef4444" : "none"} color={isWanted ? "#ef4444" : "currentColor"} />
-                      <span>{isWanted ? '❤️ You Want This! (On Wishlist)' : '🙋 I Want This! (Vote to Launch)'}</span>
+                      <Heart size={16} fill={isWanted ? "#ef4444" : "none"} color={isWanted ? "#ef4444" : "currentColor"} />
+                      <span>{isWanted ? 'You Want This (On Wishlist)' : 'I Want This'}</span>
                     </button>
 
-                    <div style={{ textAlign: 'center', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                    <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                       {interestCount > 0 ? (
-                        <span>🔥 <strong>{interestCount}</strong> {interestCount === 1 ? 'islander wants' : 'islanders want'} this on the menu!</span>
+                        <span>{interestCount} {interestCount === 1 ? 'person wants' : 'people want'} this on the menu</span>
                       ) : (
-                        <span>Be the first islander to vote and bring this to Bantayan! 🏝️</span>
+                        <span>Be the first to request this item</span>
                       )}
                     </div>
                   </div>
