@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
-import { CheckCircle2, AlertCircle, Info, AlertTriangle, X } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 
 const ToastContext = createContext({});
 
@@ -45,9 +45,6 @@ function ToastItem({ toast, onDismiss }) {
   }, [startAutoDismiss]);
 
   const handlePointerDown = (e) => {
-    // If clicking close button, don't initiate drag
-    if (e.target.closest('.toast-close-btn')) return;
-
     pauseAutoDismiss();
     startXRef.current = e.clientX;
     currentXRef.current = 0;
@@ -88,14 +85,14 @@ function ToastItem({ toast, onDismiss }) {
     if (Math.abs(diff) > 45 || velocity > 0.35) {
       triggerSlideDismiss(diff >= 0 ? 'right' : 'left');
     } else {
-      // Snap back smoothly
+      // Snap back smoothly in a straight line
       setDragX(0);
       startAutoDismiss();
     }
   };
 
-  // Compute transform and opacity
-  let transform = 'translateX(0) rotate(0deg)';
+  // Pure horizontal slide without any tilt/rotation
+  let transform = 'translateX(0)';
   let opacity = 1;
 
   if (dismissDirection === 'right') {
@@ -105,7 +102,7 @@ function ToastItem({ toast, onDismiss }) {
     transform = 'translateX(-120%)';
     opacity = 0;
   } else if (isDragging || dragX !== 0) {
-    transform = `translateX(${dragX}px) rotate(${dragX * 0.035}deg)`;
+    transform = `translateX(${dragX}px)`;
     opacity = Math.max(0.15, 1 - Math.abs(dragX) / 240);
   }
 
@@ -142,17 +139,6 @@ function ToastItem({ toast, onDismiss }) {
         {toast.type === 'info' && <Info size={16} strokeWidth={2.5} />}
       </div>
       <div className="toast-message">{toast.message}</div>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          triggerSlideDismiss('right');
-        }}
-        className="toast-close-btn"
-        aria-label="Close notification"
-      >
-        <X size={14} strokeWidth={2.2} />
-      </button>
     </div>
   );
 }
