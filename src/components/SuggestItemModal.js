@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Check } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -12,9 +12,26 @@ export default function SuggestItemModal({ isOpen, onClose }) {
   const { showToast } = useToast();
 
   const [title, setTitle] = useState('');
+  const [userName, setUserName] = useState('');
+  const [userPhone, setUserPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submittedItemName, setSubmittedItemName] = useState('');
+
+  // Pre-fill with user's profile info if logged in
+  useEffect(() => {
+    if (dbUser?.name && dbUser.name !== 'Sweet Tooth Customer') {
+      setUserName(dbUser.name);
+    } else if (user?.displayName) {
+      setUserName(user.displayName);
+    }
+
+    if (user?.phoneNumber) {
+      setUserPhone(user.phoneNumber);
+    } else if (dbUser?.phone) {
+      setUserPhone(dbUser.phone);
+    }
+  }, [user, dbUser]);
 
   if (!isOpen) return null;
 
@@ -34,12 +51,19 @@ export default function SuggestItemModal({ isOpen, onClose }) {
         }
       }
 
+      const finalName = userName.trim() || 
+        (dbUser?.name && dbUser.name !== 'Sweet Tooth Customer' ? dbUser.name : '') || 
+        user?.displayName || 
+        'Customer';
+
+      const finalPhone = userPhone.trim() || user?.phoneNumber || dbUser?.phone || '';
+
       const payload = {
         title: itemTitle,
         category: 'request',
         notes: '',
-        userName: dbUser?.name || user?.displayName || 'Customer',
-        userPhone: user?.phoneNumber || dbUser?.phone || '',
+        userName: finalName,
+        userPhone: finalPhone,
         userId: user?.uid || null,
         guestId: guestId || null,
         status: 'new',
@@ -102,7 +126,7 @@ export default function SuggestItemModal({ isOpen, onClose }) {
       <div 
         className="product-modal-content" 
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: '380px', padding: '24px 20px', borderRadius: '18px' }}
+        style={{ maxWidth: '390px', padding: '24px 20px', borderRadius: '18px' }}
       >
         <button 
           className="product-modal-close" 
@@ -157,25 +181,75 @@ export default function SuggestItemModal({ isOpen, onClose }) {
               What food or drink would you love to see on Bantayan Hive?
             </p>
 
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <input
-                type="text"
-                autoFocus
-                required
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Smash Burger, Loaded Fries, Mango Shake..."
-                style={{
-                  width: '100%',
-                  padding: '12px 14px',
-                  borderRadius: '12px',
-                  border: '1.5px solid var(--border)',
-                  fontSize: '0.92rem',
-                  background: 'var(--bg-primary)',
-                  color: 'var(--text-primary)',
-                  outline: 'none',
-                }}
-              />
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '4px', color: 'var(--text-secondary)' }}>
+                  ITEM NAME <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  required
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Smash Burger, Loaded Fries, Mango Shake..."
+                  style={{
+                    width: '100%',
+                    padding: '11px 13px',
+                    borderRadius: '12px',
+                    border: '1.5px solid var(--border)',
+                    fontSize: '0.92rem',
+                    background: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: '4px', color: 'var(--text-secondary)' }}>
+                    YOUR NAME
+                  </label>
+                  <input
+                    type="text"
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    placeholder="Name"
+                    style={{
+                      width: '100%',
+                      padding: '9px 11px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border)',
+                      fontSize: '0.84rem',
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: '4px', color: 'var(--text-secondary)' }}>
+                    PHONE NO.
+                  </label>
+                  <input
+                    type="tel"
+                    value={userPhone}
+                    onChange={(e) => setUserPhone(e.target.value)}
+                    placeholder="09..."
+                    style={{
+                      width: '100%',
+                      padding: '9px 11px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border)',
+                      fontSize: '0.84rem',
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+              </div>
 
               <button
                 type="submit"
@@ -185,7 +259,7 @@ export default function SuggestItemModal({ isOpen, onClose }) {
                   padding: '12px',
                   fontSize: '0.92rem',
                   fontWeight: 700,
-                  marginTop: '4px',
+                  marginTop: '6px',
                   opacity: (!title.trim() || submitting) ? 0.6 : 1,
                   cursor: (!title.trim() || submitting) ? 'not-allowed' : 'pointer',
                 }}

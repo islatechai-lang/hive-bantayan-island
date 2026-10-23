@@ -956,9 +956,9 @@ export default function AdminPage() {
                         </div>
                         <div className="text-xs text-secondary">
                           ₱{p.price} • {p.category === 'cake' ? '🍰 TIRAMISU' : '🥤 DRINKS'}
-                          {p.interestCount > 0 && (
+                          {Math.max(0, p.interestCount || 0) > 0 && (
                             <span style={{ marginLeft: '6px', color: '#ef4444', fontWeight: 600 }}>
-                              • ❤️ {p.interestCount} {p.interestCount === 1 ? 'person wants' : 'people want'} this
+                              • ❤️ {Math.max(0, p.interestCount)} {Math.max(0, p.interestCount) === 1 ? 'person wants' : 'people want'} this
                             </span>
                           )}
                         </div>
@@ -1141,7 +1141,7 @@ export default function AdminPage() {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ef4444' }}>
-                      {prod.interestCount || 0}
+                      {Math.max(0, prod.interestCount || 0)}
                     </div>
                     <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 600 }}>WANTS</div>
                   </div>
@@ -1278,16 +1278,20 @@ export default function AdminPage() {
                       </div>
 
                       {/* Customer attribution info */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: 'var(--text-secondary)', paddingTop: '8px', borderTop: '1px dashed var(--border)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span>Suggested by: <strong>{item.userName || 'Anonymous'}</strong></span>
-                          {item.userPhone && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: 'var(--text-secondary)', paddingTop: '8px', borderTop: '1px dashed var(--border)', flexWrap: 'wrap', gap: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span>Suggested by: <strong style={{ color: 'var(--text-primary)' }}>{item.userName && item.userName !== 'Sweet Tooth Customer' ? item.userName : 'Customer'}</strong></span>
+                          {item.userPhone ? (
                             <a 
                               href={`tel:${item.userPhone}`} 
-                              style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}
+                              style={{ color: 'var(--accent)', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                             >
                               📞 {item.userPhone}
                             </a>
+                          ) : (
+                            <span style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.74rem' }}>
+                              (No phone provided)
+                            </span>
                           )}
                         </div>
                         <div>

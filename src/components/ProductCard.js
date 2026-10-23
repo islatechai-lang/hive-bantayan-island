@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Image from 'next/image';
 import { Plus, Minus, X, ShoppingBag, Heart } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { doc, setDoc, updateDoc, deleteDoc, increment, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, increment, serverTimestamp } from 'firebase/firestore';
 
 export default function ProductCard({ product }) {
   const { cart, addToCart, updateQuantity } = useCart();
@@ -74,7 +74,7 @@ export default function ProductCard({ product }) {
             productId: product.id,
             productName: product.name,
             userId: user?.uid || null,
-            userName: dbUser?.name || user?.displayName || 'Customer',
+            userName: (dbUser?.name && dbUser.name !== 'Sweet Tooth Customer') ? dbUser.name : (user?.displayName || 'Customer'),
             userPhone: user?.phoneNumber || dbUser?.phone || '',
             guestId: guestId || null,
             isGuest: !user,
@@ -86,9 +86,21 @@ export default function ProductCard({ product }) {
           }).catch(() => {});
         } else {
           await deleteDoc(interestRef).catch(() => {});
-          await updateDoc(productRef, {
-            interestCount: increment(-1),
-          }).catch(() => {});
+          try {
+            const prodSnap = await getDoc(productRef);
+            const currentInterest = prodSnap.exists() ? (prodSnap.data().interestCount || 0) : 0;
+            if (currentInterest > 0) {
+              await updateDoc(productRef, {
+                interestCount: increment(-1),
+              });
+            } else {
+              await updateDoc(productRef, {
+                interestCount: 0,
+              });
+            }
+          } catch {
+            // safe fallback
+          }
         }
       }
     } catch (firestoreErr) {
