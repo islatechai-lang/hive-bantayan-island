@@ -73,6 +73,10 @@ export default function SuggestItemModal({ isOpen, onClose }) {
         }
       }
 
+      if (!writeSuccess) {
+        throw new Error('Failed to record suggestion to database');
+      }
+
       // Success feedback: user stays in control of closing when they are ready
       setSubmittedItemName(itemTitle);
       setSubmitted(true);
