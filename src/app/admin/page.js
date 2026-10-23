@@ -881,7 +881,7 @@ export default function AdminPage() {
                     color: inventoryCategory === 'milkshake' ? '#fff' : 'var(--text-secondary)'
                   }}
                 >
-                  🥤 Milkshakes ({products.filter(p => p.category === 'milkshake').length})
+                  🥤 Shakes & Drinks ({products.filter(p => p.category === 'milkshake').length})
                 </button>
               </div>
             </div>

@@ -14,10 +14,15 @@ export default function ProductCard({ product }) {
   const cartItem = cart.find((item) => item.id === product.id);
   const quantity = cartItem ? cartItem.quantity : 0;
 
-  const isSoldOut = !product.available || (product.stock !== undefined && product.stock <= 0);
+  const isComingSoon = Boolean(product.comingSoon);
+  const isSoldOut = !isComingSoon && (!product.available || (product.stock !== undefined && product.stock <= 0));
 
   const handleIncrement = (e) => {
     if (e) e.stopPropagation();
+    if (isComingSoon) {
+      showToast(`${product.name} is launching soon! Stay tuned ✨`, 'info');
+      return;
+    }
     if (product.stock !== undefined && quantity >= product.stock) {
       showToast(`Only ${product.stock} items left in stock!`, 'warning');
       return;
@@ -37,7 +42,7 @@ export default function ProductCard({ product }) {
   };
 
   const handleModalAddToCart = () => {
-    if (isSoldOut) return;
+    if (isComingSoon || isSoldOut) return;
     handleIncrement();
     showToast(`Added ${product.name} to cart! 🍰`, 'success');
     setShowModal(false);
@@ -62,6 +67,11 @@ export default function ProductCard({ product }) {
             }
             priority={product.sortOrder <= 4}
           />
+          {isComingSoon && (
+            <div className="product-coming-soon-badge">
+              <span>✦</span> Coming Soon
+            </div>
+          )}
           {isSoldOut && (
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'var(--error)', fontSize: '0.9rem', letterSpacing: '0.5px' }}>
               SOLD OUT
@@ -74,7 +84,11 @@ export default function ProductCard({ product }) {
           
           {/* Stock Level Text */}
           <div style={{ minHeight: '18px', margin: '4px 0 8px' }}>
-            {isSoldOut ? (
+            {isComingSoon ? (
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent, #c4622d)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                ✦ Launching Soon
+              </span>
+            ) : isSoldOut ? (
               <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--error)' }}>Out of Stock</span>
             ) : product.stock !== undefined ? (
               product.stock <= 5 ? (
@@ -87,7 +101,19 @@ export default function ProductCard({ product }) {
 
           <div className="product-card-footer">
             <div className="product-card-price">₱{product.price}</div>
-            {quantity > 0 ? (
+            {isComingSoon ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowModal(true);
+                }}
+                className="coming-soon-card-btn"
+                aria-label="Preview item"
+              >
+                Preview
+              </button>
+            ) : quantity > 0 ? (
               <div className="qty-control" onClick={(e) => e.stopPropagation()}>
                 <button onClick={handleDecrement} className="qty-btn qty-btn-minus" aria-label="Decrease quantity"><Minus size={14} strokeWidth={2.5} /></button>
                 <span className="qty-value">{quantity}</span>
@@ -122,6 +148,11 @@ export default function ProductCard({ product }) {
                 }}
                 priority
               />
+              {isComingSoon && (
+                <div className="product-modal-coming-soon-badge">
+                  <span>✦</span> Coming Soon
+                </div>
+              )}
               {isSoldOut && (
                 <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'var(--error)', fontSize: '1.1rem' }}>
                   SOLD OUT
@@ -136,7 +167,11 @@ export default function ProductCard({ product }) {
                   <div className="product-modal-price">₱{product.price}</div>
                 </div>
                 <div style={{ marginTop: '4px' }}>
-                  {isSoldOut ? (
+                  {isComingSoon ? (
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#c4622d', background: 'rgba(196, 98, 45, 0.12)', padding: '3px 10px', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                      ✨ Coming Soon — Launching in Bantayan!
+                    </span>
+                  ) : isSoldOut ? (
                     <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--error)', background: '#fdecec', padding: '2px 8px', borderRadius: '10px' }}>Out of Stock</span>
                   ) : product.stock !== undefined ? (
                     <span style={{ fontSize: '12px', fontWeight: 600, color: product.stock <= 5 ? 'var(--error)' : 'var(--accent)', background: 'var(--card-bg-accent)', padding: '2px 8px', borderRadius: '10px' }}>
@@ -150,7 +185,27 @@ export default function ProductCard({ product }) {
 
               {/* Action Buttons in Modal */}
               <div style={{ marginTop: '8px' }}>
-                {quantity > 0 ? (
+                {isComingSoon ? (
+                  <button
+                    disabled
+                    className="btn btn-block btn-pill"
+                    style={{
+                      padding: '14px',
+                      fontSize: '0.95rem',
+                      fontWeight: 700,
+                      background: 'rgba(196, 98, 45, 0.08)',
+                      color: 'var(--accent, #c4622d)',
+                      border: '1.5px dashed rgba(196, 98, 45, 0.35)',
+                      cursor: 'default',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <span>✦</span> Launching Soon — Stay Tuned!
+                  </button>
+                ) : quantity > 0 ? (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--card-bg-accent)', padding: '10px 16px', borderRadius: '30px' }}>
                     <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>In Your Cart:</span>
                     <div className="qty-control">

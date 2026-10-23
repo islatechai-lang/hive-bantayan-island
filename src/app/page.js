@@ -73,7 +73,8 @@ export default function MenuPage() {
       // 2. Ensure current products exist with updated details in Firestore
       fallbackProducts.forEach((p) => {
         const existingDoc = querySnapshot.docs.find(d => d.id === p.id);
-        if (!existingDoc || existingDoc.data().name !== p.name || existingDoc.data().price !== p.price || existingDoc.data().image !== p.image) {
+        const docData = existingDoc?.data();
+        if (!existingDoc || docData.name !== p.name || docData.price !== p.price || docData.image !== p.image || docData.comingSoon !== Boolean(p.comingSoon)) {
           const docRef = doc(db, 'products', p.id);
           batch.set(docRef, {
             name: p.name,
@@ -83,8 +84,9 @@ export default function MenuPage() {
             image: p.image,
             previewPosition: p.previewPosition || null,
             imagePosition: p.imagePosition || null,
-            available: existingDoc?.data()?.available !== undefined ? existingDoc.data().available : true,
-            stock: existingDoc?.data()?.stock !== undefined ? existingDoc.data().stock : 20,
+            available: p.comingSoon ? false : (docData?.available !== undefined ? docData.available : true),
+            comingSoon: Boolean(p.comingSoon),
+            stock: docData?.stock !== undefined ? docData.stock : 20,
             sortOrder: p.sortOrder
           }, { merge: true });
           needsBatchCommit = true;
@@ -209,7 +211,7 @@ export default function MenuPage() {
           onClick={() => setCategory('milkshake')}
           className={`category-tab ${category === 'milkshake' ? 'active' : ''}`}
         >
-          Creamy Shakes
+          Coming Soon 🥤
         </button>
       </div>
 
