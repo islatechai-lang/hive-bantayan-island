@@ -14,6 +14,7 @@ export default function SuggestItemModal({ isOpen, onClose }) {
   const [title, setTitle] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submittedItemName, setSubmittedItemName] = useState('');
 
   if (!isOpen) return null;
 
@@ -72,14 +73,11 @@ export default function SuggestItemModal({ isOpen, onClose }) {
         }
       }
 
-      // Success feedback
+      // Success feedback: user stays in control of closing when they are ready
+      setSubmittedItemName(itemTitle);
       setSubmitted(true);
+      setTitle('');
       showToast('Request received! Thank you.', 'success');
-      setTimeout(() => {
-        setTitle('');
-        setSubmitted(false);
-        onClose();
-      }, 1200);
     } catch (err) {
       console.error('Error submitting suggestion:', err);
       showToast('Could not send request. Please try again.', 'error');
@@ -91,6 +89,7 @@ export default function SuggestItemModal({ isOpen, onClose }) {
   const handleClose = () => {
     setTitle('');
     setSubmitted(false);
+    setSubmittedItemName('');
     onClose();
   };
 
@@ -111,26 +110,39 @@ export default function SuggestItemModal({ isOpen, onClose }) {
         </button>
 
         {submitted ? (
-          <div style={{ textAlign: 'center', padding: '16px 0' }}>
+          <div style={{ textAlign: 'center', padding: '16px 0 8px' }}>
             <div style={{ 
-              width: '44px', 
-              height: '44px', 
+              width: '48px', 
+              height: '48px', 
               borderRadius: '50%', 
               background: '#ecfdf5', 
               color: '#059669',
               display: 'flex', 
               alignItems: 'center', 
               justifyContent: 'center',
-              margin: '0 auto 12px'
+              margin: '0 auto 14px'
             }}>
-              <Check size={22} strokeWidth={2.5} />
+              <Check size={24} strokeWidth={2.5} />
             </div>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '0 0 4px', color: 'var(--text-primary)' }}>
-              Request Received
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '0 0 6px', color: 'var(--text-primary)' }}>
+              Request Received!
             </h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
-              We'll consider "{title}" for our menu!
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: '0 0 20px', lineHeight: 1.45 }}>
+              We'll consider adding <strong style={{ color: 'var(--text-primary)' }}>"{submittedItemName}"</strong> to our menu. Thank you for your feedback!
             </p>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="btn btn-primary btn-pill btn-block"
+              style={{
+                padding: '12px 20px',
+                fontSize: '0.92rem',
+                fontWeight: 700,
+                boxShadow: '0 4px 14px rgba(196, 98, 45, 0.25)',
+              }}
+            >
+              Done
+            </button>
           </div>
         ) : (
           <div>

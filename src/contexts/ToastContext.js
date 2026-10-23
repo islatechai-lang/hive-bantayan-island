@@ -1,59 +1,139 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
-import { CheckCircle2, AlertCircle, Info, AlertTriangle } from 'lucide-react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import { CheckCircle2, AlertCircle, Info, AlertTriangle, X } from 'lucide-react';
 
 const ToastContext = createContext({});
 
 function ToastItem({ toast, onDismiss }) {
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [isDismissed, setIsDismissed] = useState(false);
+  const [dismissDirection, setDismissDirection] = useState(null); // 'left' | 'right' | null
+  
   const startXRef = useRef(0);
   const currentXRef = useRef(0);
+  const startTimeRef = useRef(0);
+  const isDraggingRef = useRef(false);
+  const timerRef = useRef(null);
 
-  const handleTouchStart = (e) => {
-    startXRef.current = e.touches[0].clientX;
+  const triggerSlideDismiss = useCallback((direction = 'right') => {
+    setDismissDirection(direction);
+    setTimeout(() => {
+      onDismiss(toast.id);
+    }, 250);
+  }, [onDismiss, toast.id]);
+
+  const startAutoDismiss = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      triggerSlideDismiss('right');
+    }, toast.duration || 3400);
+  }, [toast.duration, triggerSlideDismiss]);
+
+  const pauseAutoDismiss = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    startAutoDismiss();
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [startAutoDismiss]);
+
+  const handlePointerDown = (e) => {
+    // If clicking close button, don't initiate drag
+    if (e.target.closest('.toast-close-btn')) return;
+
+    pauseAutoDismiss();
+    startXRef.current = e.clientX;
     currentXRef.current = 0;
+    startTimeRef.current = Date.now();
+    isDraggingRef.current = true;
     setIsDragging(true);
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // safe fallback if pointer capture fails
+    }
   };
 
-  const handleTouchMove = (e) => {
-    if (!isDragging) return;
-    const diff = e.touches[0].clientX - startXRef.current;
+  const handlePointerMove = (e) => {
+    if (!isDraggingRef.current) return;
+    const diff = e.clientX - startXRef.current;
     currentXRef.current = diff;
     setDragX(diff);
   };
 
-  const handleTouchEnd = () => {
+  const handlePointerUpOrCancel = (e) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
     setIsDragging(false);
-    if (Math.abs(currentXRef.current) > 55) {
-      setIsDismissed(true);
-      setTimeout(() => {
-        onDismiss(toast.id);
-      }, 180);
+
+    try {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+    } catch {}
+
+    const diff = currentXRef.current;
+    const elapsed = Math.max(1, Date.now() - startTimeRef.current);
+    const velocity = Math.abs(diff) / elapsed; // px per ms
+
+    // If dragged more than 45px or swiped with velocity (> 0.35 px/ms)
+    if (Math.abs(diff) > 45 || velocity > 0.35) {
+      triggerSlideDismiss(diff >= 0 ? 'right' : 'left');
     } else {
+      // Snap back smoothly
       setDragX(0);
+      startAutoDismiss();
     }
   };
 
-  const opacity = isDismissed ? 0 : Math.max(0.2, 1 - Math.abs(dragX) / 180);
+  // Compute transform and opacity
+  let transform = 'translateX(0) rotate(0deg)';
+  let opacity = 1;
+
+  if (dismissDirection === 'right') {
+    transform = 'translateX(120%)';
+    opacity = 0;
+  } else if (dismissDirection === 'left') {
+    transform = 'translateX(-120%)';
+    opacity = 0;
+  } else if (isDragging || dragX !== 0) {
+    transform = `translateX(${dragX}px) rotate(${dragX * 0.035}deg)`;
+    opacity = Math.max(0.15, 1 - Math.abs(dragX) / 240);
+  }
+
+  const transition = isDragging
+    ? 'none'
+    : 'transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.24s ease';
 
   return (
     <div
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUpOrCancel}
+      onPointerCancel={handlePointerUpOrCancel}
+      onMouseEnter={pauseAutoDismiss}
+      onMouseLeave={() => {
+        if (!isDraggingRef.current && !dismissDirection) {
+          startAutoDismiss();
+        }
+      }}
       style={{
-        transform: isDismissed 
-          ? `translateX(${currentXRef.current > 0 ? 120 : -120}%)` 
-          : `translateX(${dragX}px)`,
+        transform,
         opacity,
-        transition: isDragging ? 'none' : 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease',
+        transition,
         touchAction: 'pan-y',
         userSelect: 'none',
+        cursor: isDragging ? 'grabbing' : 'grab',
       }}
-      className={`toast toast-${toast.type}`}
+      className={`toast toast-${toast.type} ${dismissDirection ? 'toast-dismissing' : ''}`}
     >
       <div className="toast-icon-wrapper">
         {toast.type === 'success' && <CheckCircle2 size={16} strokeWidth={2.5} />}
@@ -62,6 +142,17 @@ function ToastItem({ toast, onDismiss }) {
         {toast.type === 'info' && <Info size={16} strokeWidth={2.5} />}
       </div>
       <div className="toast-message">{toast.message}</div>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          triggerSlideDismiss('right');
+        }}
+        className="toast-close-btn"
+        aria-label="Close notification"
+      >
+        <X size={14} strokeWidth={2.2} />
+      </button>
     </div>
   );
 }
@@ -73,13 +164,9 @@ export function ToastProvider({ children }) {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
-  const showToast = useCallback((message, type = 'success', duration = 3200) => {
+  const showToast = useCallback((message, type = 'success', duration = 3400) => {
     const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, message, type }]);
-
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((toast) => toast.id !== id));
-    }, duration);
+    setToasts((prev) => [...prev, { id, message, type, duration }]);
   }, []);
 
   return (
