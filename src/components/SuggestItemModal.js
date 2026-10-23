@@ -10,7 +10,7 @@ export default function SuggestItemModal({ isOpen, onClose }) {
   const { showToast } = useToast();
 
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('shake');
+  const [category, setCategory] = useState('burger');
   const [notes, setNotes] = useState('');
   const [name, setName] = useState(dbUser?.name || user?.displayName || '');
   const [phone, setPhone] = useState(user?.phoneNumber || dbUser?.phone || '');
@@ -22,7 +22,7 @@ export default function SuggestItemModal({ isOpen, onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title.trim()) {
-      showToast('Please enter a flavor or item name!', 'warning');
+      showToast('Please enter an item or food name!', 'warning');
       return;
     }
 
@@ -45,7 +45,7 @@ export default function SuggestItemModal({ isOpen, onClose }) {
           title: title.trim(),
           category,
           notes: notes.trim(),
-          userName: name.trim() || (user ? 'Valued Customer' : 'Anonymous Island Foodie'),
+          userName: name.trim() || (user ? 'Valued Customer' : 'Island Foodie'),
           userPhone: phone.trim(),
           userId: user?.uid || null,
           guestId: guestId || null,
@@ -55,9 +55,9 @@ export default function SuggestItemModal({ isOpen, onClose }) {
       const data = await res.json();
       if (data.success) {
         setSubmitted(true);
-        showToast(`Suggestion submitted! Thank you for the sweet idea! 💡`, 'success');
+        showToast('Request received! Thank you for the delicious idea.', 'success');
       } else {
-        showToast(data.error || 'Failed to submit suggestion', 'error');
+        showToast(data.error || 'Failed to submit request', 'error');
       }
     } catch (err) {
       console.error('Error submitting suggestion:', err);
@@ -96,8 +96,8 @@ export default function SuggestItemModal({ isOpen, onClose }) {
               width: '64px', 
               height: '64px', 
               borderRadius: '50%', 
-              background: 'rgba(34, 197, 94, 0.12)', 
-              color: '#16a34a',
+              background: '#ecfdf5', 
+              color: '#059669',
               display: 'flex', 
               alignItems: 'center', 
               justifyContent: 'center',
@@ -106,10 +106,10 @@ export default function SuggestItemModal({ isOpen, onClose }) {
               <CheckCircle2 size={36} />
             </div>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px' }}>
-              We Got Your Suggestion! 🎉
+              We Got Your Request!
             </h3>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '24px' }}>
-              Thank you for suggesting <strong>"{title}"</strong>! Our team reviews every idea to bring the sweetest treats to Bantayan Island.
+              Thank you for suggesting <strong>"{title}"</strong>! Our kitchen team reviews every item to see what we can craft and deliver across Bantayan Island.
             </p>
             <button
               onClick={handleResetAndClose}
@@ -122,54 +122,56 @@ export default function SuggestItemModal({ isOpen, onClose }) {
         ) : (
           <div>
             <div style={{ 
-              background: 'linear-gradient(135deg, rgba(196, 98, 45, 0.12) 0%, rgba(232, 117, 138, 0.12) 100%)', 
+              background: 'linear-gradient(135deg, rgba(196, 98, 45, 0.1) 0%, rgba(232, 117, 138, 0.1) 100%)', 
               padding: '24px 20px 18px',
               borderBottom: '1px solid var(--border)'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent)', fontWeight: 700, fontSize: '0.85rem', marginBottom: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent)', fontWeight: 700, fontSize: '0.82rem', marginBottom: '4px', letterSpacing: '0.5px' }}>
                 <Sparkles size={16} />
-                <span>CUSTOMER WISHLIST</span>
+                <span>CUSTOMER MENU REQUESTS</span>
               </div>
               <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                Suggest a Flavor or Item 💡
+                Request Any Food or Drink
               </h2>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '6px 0 0', lineHeight: 1.4 }}>
-                Craving something special? Tell us what milkshake flavor, drink, or dessert you want us to make next!
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '6px 0 0', lineHeight: 1.45 }}>
+                Craving burgers, loaded fries, snacks, special shakes, or desserts? Tell us what you want us to deliver next!
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form onSubmit={handleSubmit} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '72vh', overflowY: 'auto' }}>
               {/* Category selector */}
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  What kind of treat?
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  What type of food or drink?
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
                   {[
-                    { id: 'shake', label: '🥤 Milkshake', desc: 'Thick & Creamy' },
-                    { id: 'coffee', label: '☕ Iced Coffee / Drink', desc: 'Cold & Refreshing' },
-                    { id: 'cake', label: '🍰 Tiramisu / Cake', desc: 'Artisanal Dessert' },
-                    { id: 'other', label: '✨ Other Treat', desc: 'Special Snack' },
+                    { id: 'burger', label: '🍔 Burgers & Sandwiches', desc: 'Juicy, grilled, toasties' },
+                    { id: 'snack', label: '🍟 Snacks & Sides', desc: 'Loaded fries, wings, bites' },
+                    { id: 'shake', label: '🥤 Creamy Milkshakes', desc: 'Thick handcrafted shakes' },
+                    { id: 'coffee', label: '☕ Iced Coffee & Drinks', desc: 'Cold brews, lattes, refreshers' },
+                    { id: 'cake', label: '🍰 Tiramisu & Desserts', desc: 'Sweet treats, slices, pastries' },
+                    { id: 'meal', label: '🍽️ Rice Meals & Mains', desc: 'Comfort food & hearty bowls' },
                   ].map((cat) => (
                     <button
                       key={cat.id}
                       type="button"
                       onClick={() => setCategory(cat.id)}
                       style={{
-                        padding: '8px 10px',
+                        padding: '9px 10px',
                         borderRadius: '10px',
                         border: category === cat.id ? '2px solid var(--accent)' : '1px solid var(--border)',
                         background: category === cat.id ? 'rgba(196, 98, 45, 0.08)' : 'var(--bg-secondary)',
                         color: category === cat.id ? 'var(--accent)' : 'var(--text-primary)',
                         textAlign: 'left',
                         cursor: 'pointer',
-                        fontSize: '0.82rem',
+                        fontSize: '0.8rem',
                         fontWeight: category === cat.id ? 700 : 500,
                         transition: 'all 0.15s ease'
                       }}
                     >
-                      <div>{cat.label}</div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{cat.desc}</div>
+                      <div style={{ fontWeight: category === cat.id ? 700 : 600 }}>{cat.label}</div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{cat.desc}</div>
                     </button>
                   ))}
                 </div>
@@ -177,21 +179,21 @@ export default function SuggestItemModal({ isOpen, onClose }) {
 
               {/* Flavor / Item Name Input */}
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Flavor / Item Name <span style={{ color: 'var(--error)' }}>*</span>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Food or Drink Name <span style={{ color: 'var(--error)' }}>*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g., Mango Graham Shake, Ube Tiramisu..."
+                  placeholder="e.g., Double Smash Burger, Cheesy Bacon Fries, Mango Shake..."
                   style={{
                     width: '100%',
                     padding: '12px 14px',
                     borderRadius: '10px',
                     border: '1.5px solid var(--border)',
-                    fontSize: '0.92rem',
+                    fontSize: '0.9rem',
                     background: 'var(--bg-primary)',
                     color: 'var(--text-primary)',
                     outline: 'none',
@@ -201,20 +203,20 @@ export default function SuggestItemModal({ isOpen, onClose }) {
 
               {/* Notes / Description */}
               <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Notes / Recipe Ideas (Optional)
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Specific Details or Recipe Ideas (Optional)
                 </label>
                 <textarea
                   rows={2}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="e.g., Less sweet with extra toppings, or served in a bottle!"
+                  placeholder="e.g., With brioche bun and secret sauce, extra crispy, less sweet..."
                   style={{
                     width: '100%',
                     padding: '10px 14px',
                     borderRadius: '10px',
                     border: '1.5px solid var(--border)',
-                    fontSize: '0.88rem',
+                    fontSize: '0.86rem',
                     background: 'var(--bg-primary)',
                     color: 'var(--text-primary)',
                     outline: 'none',
@@ -286,7 +288,7 @@ export default function SuggestItemModal({ isOpen, onClose }) {
                 }}
               >
                 <Send size={16} />
-                {submitting ? 'Submitting Idea...' : 'Submit Suggestion ✨'}
+                {submitting ? 'Sending Request...' : 'Send Menu Request'}
               </button>
             </form>
           </div>

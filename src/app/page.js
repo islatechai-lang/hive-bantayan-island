@@ -235,9 +235,9 @@ export default function MenuPage() {
               <div className="suggest-flavor-header">
                 <span className="suggest-flavor-icon">💡</span>
                 <div>
-                  <h4 className="suggest-flavor-title">Have a Flavor in Mind?</h4>
+                  <h4 className="suggest-flavor-title">Craving Something We Don't Have Yet?</h4>
                   <p className="suggest-flavor-desc">
-                    Tell us what shake, coffee drink, or dessert you want to see on Bantayan Hive!
+                    Burgers, loaded snacks, special shakes, or new desserts — tell us what you'd love delivered across Bantayan!
                   </p>
                 </div>
               </div>
@@ -246,7 +246,7 @@ export default function MenuPage() {
                 onClick={() => setShowSuggestModal(true)}
                 className="suggest-flavor-btn"
               >
-                <span>✨</span> Request a Flavor
+                <span>✨</span> Request Food or Drinks
               </button>
             </div>
           )}

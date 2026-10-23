@@ -54,7 +54,7 @@ export default function ProductCard({ product }) {
     if (typeof window !== 'undefined') {
       if (nextWanted) {
         localStorage.setItem('hive_wanted_' + product.id, 'true');
-        showToast(`Added to your wishlist! We'll notify when ${product.name} launches 🎉`, 'success');
+        showToast(`Added to your wishlist! We'll notify you when ${product.name} launches.`, 'success');
       } else {
         localStorage.removeItem('hive_wanted_' + product.id);
         showToast(`Removed from wishlist.`, 'info');
@@ -83,7 +83,7 @@ export default function ProductCard({ product }) {
   const handleIncrement = (e) => {
     if (e) e.stopPropagation();
     if (isComingSoon) {
-      showToast(`${product.name} is launching soon! Stay tuned ✨`, 'info');
+      showToast(`${product.name} is launching soon. Stay tuned!`, 'info');
       return;
     }
     if (product.stock !== undefined && quantity >= product.stock) {
@@ -107,7 +107,7 @@ export default function ProductCard({ product }) {
   const handleModalAddToCart = () => {
     if (isComingSoon || isSoldOut) return;
     handleIncrement();
-    showToast(`Added ${product.name} to cart! 🍰`, 'success');
+    showToast(`Added ${product.name} to cart!`, 'success');
     setShowModal(false);
   };
 

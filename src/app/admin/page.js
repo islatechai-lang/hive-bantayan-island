@@ -1155,7 +1155,7 @@ export default function AdminPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Lightbulb size={18} color="#f59e0b" />
-                <h3 className="section-title" style={{ margin: 0 }}>Customer Flavor Ideas ({suggestions.length})</h3>
+                <h3 className="section-title" style={{ margin: 0 }}>Customer Food & Drink Requests ({suggestions.length})</h3>
               </div>
             </div>
 
@@ -1164,19 +1164,22 @@ export default function AdminPage() {
             ) : suggestions.length === 0 ? (
               <div style={{ padding: '36px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
                 <Lightbulb size={36} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
-                <p style={{ fontWeight: 600, margin: 0 }}>No customer suggestions yet.</p>
+                <p style={{ fontWeight: 600, margin: 0 }}>No customer requests yet.</p>
                 <p style={{ fontSize: '0.82rem', marginTop: '4px' }}>
-                  When island visitors tap "Request a Flavor" on the Coming Soon tab, their ideas will appear here!
+                  When island visitors tap "Request Food or Drinks" on the Coming Soon tab, their ideas will appear here!
                 </p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {suggestions.map((item) => {
                   const categoryLabels = {
+                    burger: '🍔 Burger & Sandwich',
+                    snack: '🍟 Snacks & Sides',
                     shake: '🥤 Milkshake',
                     coffee: '☕ Coffee / Drink',
                     cake: '🍰 Tiramisu / Cake',
-                    other: '✨ Other Treat'
+                    meal: '🍽️ Rice Meal / Main',
+                    other: '✨ Other Food or Drink'
                   };
 
                   const statusColors = {
