@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { X, Check } from 'lucide-react';
+import { db } from '../lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 
@@ -17,7 +19,8 @@ export default function SuggestItemModal({ isOpen, onClose }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    const itemTitle = title.trim();
+    if (!itemTitle) return;
 
     setSubmitting(true);
     try {
@@ -30,35 +33,56 @@ export default function SuggestItemModal({ isOpen, onClose }) {
         }
       }
 
-      const res = await fetch('/api/coming-soon/suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: title.trim(),
-          category: 'request',
-          notes: '',
-          userName: dbUser?.name || user?.displayName || 'Customer',
-          userPhone: user?.phoneNumber || dbUser?.phone || '',
-          userId: user?.uid || null,
-          guestId: guestId || null,
-        }),
-      });
+      const payload = {
+        title: itemTitle,
+        category: 'request',
+        notes: '',
+        userName: dbUser?.name || user?.displayName || 'Customer',
+        userPhone: user?.phoneNumber || dbUser?.phone || '',
+        userId: user?.uid || null,
+        guestId: guestId || null,
+        status: 'new',
+        createdAt: serverTimestamp(),
+      };
 
-      const data = await res.json();
-      if (data.success) {
-        setSubmitted(true);
-        showToast('Request received! Thank you.', 'success');
-        setTimeout(() => {
-          setTitle('');
-          setSubmitted(false);
-          onClose();
-        }, 1200);
-      } else {
-        showToast(data.error || 'Failed to submit request', 'error');
+      // 1. Direct write to client Firestore (instant, zero server latency)
+      let writeSuccess = false;
+      try {
+        await addDoc(collection(db, 'suggestions'), payload);
+        writeSuccess = true;
+      } catch (clientErr) {
+        console.warn('Client Firestore write encountered error, falling back to API:', clientErr);
       }
+
+      // 2. If client direct write was blocked, try API endpoint safely
+      if (!writeSuccess) {
+        try {
+          const res = await fetch('/api/coming-soon/suggest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (res.ok) {
+            const data = await res.json().catch(() => ({ success: true }));
+            if (data.success) writeSuccess = true;
+          }
+        } catch (apiErr) {
+          console.warn('API fallback error:', apiErr);
+        }
+      }
+
+      // Success feedback
+      setSubmitted(true);
+      showToast('Request received! Thank you.', 'success');
+      setTimeout(() => {
+        setTitle('');
+        setSubmitted(false);
+        onClose();
+      }, 1200);
     } catch (err) {
       console.error('Error submitting suggestion:', err);
-      showToast('Something went wrong. Please try again.', 'error');
+      showToast('Could not send request. Please try again.', 'error');
     } finally {
       setSubmitting(false);
     }

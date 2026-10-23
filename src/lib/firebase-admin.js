@@ -20,17 +20,33 @@ const getCleanPrivateKey = () => {
   return cleaned.replace(/\\n/g, '\n');
 };
 
-const adminApp = !getApps().length
-  ? initializeApp({
-      credential: cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: getCleanPrivateKey(),
-      }),
-    })
-  : getApps()[0];
+let adminApp = null;
+let adminDb = null;
+let adminAuth = null;
 
-const adminDb = getFirestore(adminApp);
-const adminAuth = getAuth(adminApp);
+try {
+  const privateKey = getCleanPrivateKey();
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+
+  if (projectId && clientEmail && privateKey) {
+    adminApp = !getApps().length
+      ? initializeApp({
+          credential: cert({
+            projectId,
+            clientEmail,
+            privateKey,
+          }),
+        })
+      : getApps()[0];
+
+    adminDb = getFirestore(adminApp);
+    adminAuth = getAuth(adminApp);
+  } else {
+    console.warn('Firebase Admin credentials missing or incomplete; server-side Admin SDK will be inactive.');
+  }
+} catch (err) {
+  console.warn('Firebase Admin initialization error:', err.message);
+}
 
 export { adminApp, adminDb, adminAuth };

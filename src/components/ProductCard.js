@@ -6,6 +6,8 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import Image from 'next/image';
 import { Plus, Minus, X, ShoppingBag, Heart } from 'lucide-react';
+import { db } from '../lib/firebase';
+import { doc, setDoc, updateDoc, deleteDoc, increment, serverTimestamp } from 'firebase/firestore';
 
 export default function ProductCard({ product }) {
   const { cart, addToCart, updateQuantity } = useCart();
@@ -62,7 +64,36 @@ export default function ProductCard({ product }) {
     }
 
     try {
-      await fetch('/api/coming-soon/interest', {
+      const voterId = user?.uid || guestId;
+      if (voterId) {
+        const interestRef = doc(db, 'product_interests', `${product.id}_${voterId}`);
+        const productRef = doc(db, 'products', product.id);
+
+        if (nextWanted) {
+          await setDoc(interestRef, {
+            productId: product.id,
+            productName: product.name,
+            userId: user?.uid || null,
+            userName: dbUser?.name || user?.displayName || 'Customer',
+            userPhone: user?.phoneNumber || dbUser?.phone || '',
+            guestId: guestId || null,
+            isGuest: !user,
+            createdAt: serverTimestamp(),
+          }, { merge: true });
+
+          await updateDoc(productRef, {
+            interestCount: increment(1),
+          }).catch(() => {});
+        } else {
+          await deleteDoc(interestRef).catch(() => {});
+          await updateDoc(productRef, {
+            interestCount: increment(-1),
+          }).catch(() => {});
+        }
+      }
+    } catch (firestoreErr) {
+      // Fallback to API route if direct write fails
+      fetch('/api/coming-soon/interest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -74,9 +105,7 @@ export default function ProductCard({ product }) {
           guestId: guestId || null,
           action: nextWanted ? 'add' : 'remove',
         }),
-      });
-    } catch (err) {
-      console.error('Error toggling product interest:', err);
+      }).catch(() => {});
     }
   };
 

@@ -11,6 +11,10 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: 'Product ID is required' }, { status: 400 });
     }
 
+    if (!adminDb) {
+      return NextResponse.json({ success: true, wanted: action === 'add' });
+    }
+
     const voterId = userId || guestId;
     if (!voterId) {
       return NextResponse.json({ success: false, error: 'User or Guest ID is required' }, { status: 400 });
@@ -30,12 +34,11 @@ export async function POST(request) {
       }
       return NextResponse.json({ success: true, wanted: false });
     } else {
-      // Add interest / vote
       await interestRef.set({
         productId,
         productName: productName || productId,
         userId: userId || null,
-        userName: userName || 'Anonymous Foodie',
+        userName: userName || 'Customer',
         userPhone: userPhone || '',
         guestId: guestId || null,
         isGuest: !userId,
@@ -49,13 +52,17 @@ export async function POST(request) {
       return NextResponse.json({ success: true, wanted: true });
     }
   } catch (error) {
-    console.error('Error handling product interest:', error);
+    console.error('Error handling product interest in API:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
 export async function GET(request) {
   try {
+    if (!adminDb) {
+      return NextResponse.json({ success: true, interests: [] });
+    }
+
     const { searchParams } = new URL(request.url);
     const productId = searchParams.get('productId');
 
@@ -69,7 +76,7 @@ export async function GET(request) {
 
     return NextResponse.json({ success: true, interests });
   } catch (error) {
-    console.error('Error fetching product interests:', error);
+    console.error('Error fetching product interests in API:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

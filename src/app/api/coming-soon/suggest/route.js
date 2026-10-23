@@ -5,34 +5,46 @@ import { FieldValue } from 'firebase-admin/firestore';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { title, category = 'shake', notes = '', userName = '', userPhone = '', userId = null, guestId = null } = body;
+    const { title, category = 'request', notes = '', userName = '', userPhone = '', userId = null, guestId = null } = body;
 
     if (!title || !title.trim()) {
-      return NextResponse.json({ success: false, error: 'Suggestion title is required' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Item name is required' }, { status: 400 });
+    }
+
+    if (!adminDb) {
+      // If adminDb is not initialized, return success: false with clear message so client can handle
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Database admin service not configured' 
+      }, { status: 503 });
     }
 
     const docRef = await adminDb.collection('suggestions').add({
       title: title.trim(),
       category,
       notes: notes.trim(),
-      userName: userName.trim() || 'Anonymous Island Guest',
+      userName: userName.trim() || 'Customer',
       userPhone: userPhone.trim(),
       userId: userId || null,
       guestId: guestId || null,
       isGuest: !userId,
-      status: 'new', // new | reviewed | planned | archived
+      status: 'new',
       createdAt: FieldValue.serverTimestamp(),
     });
 
     return NextResponse.json({ success: true, id: docRef.id });
   } catch (error) {
-    console.error('Error creating suggestion:', error);
+    console.error('Error creating suggestion in API:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
 export async function GET(request) {
   try {
+    if (!adminDb) {
+      return NextResponse.json({ success: true, suggestions: [] });
+    }
+
     const snapshot = await adminDb
       .collection('suggestions')
       .orderBy('createdAt', 'desc')
@@ -50,13 +62,17 @@ export async function GET(request) {
 
     return NextResponse.json({ success: true, suggestions });
   } catch (error) {
-    console.error('Error fetching suggestions:', error);
+    console.error('Error fetching suggestions in API:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
 export async function PATCH(request) {
   try {
+    if (!adminDb) {
+      return NextResponse.json({ success: false, error: 'Database admin service not configured' }, { status: 503 });
+    }
+
     const body = await request.json();
     const { id, status } = body;
 
@@ -78,6 +94,10 @@ export async function PATCH(request) {
 
 export async function DELETE(request) {
   try {
+    if (!adminDb) {
+      return NextResponse.json({ success: false, error: 'Database admin service not configured' }, { status: 503 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
