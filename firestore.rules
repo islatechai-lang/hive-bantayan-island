@@ -50,5 +50,15 @@ service cloud.firestore {
       // Any authenticated user can read and manage rider device registrations
       allow read, write: if isAuthenticated();
     }
+
+    // 5. Customer Suggestions & Wishlist
+    match /suggestions/{suggestionId} {
+      allow read, write: if true;
+    }
+
+    // 6. Product Interest & Votes
+    match /product_interests/{interestId} {
+      allow read, write: if true;
+    }
   }
 }

@@ -1,21 +1,84 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCart } from '../contexts/CartContext';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import Image from 'next/image';
-import { Plus, Minus, X, ShoppingBag } from 'lucide-react';
+import { Plus, Minus, X, ShoppingBag, Heart } from 'lucide-react';
 
 export default function ProductCard({ product }) {
   const { cart, addToCart, updateQuantity } = useCart();
   const { showToast } = useToast();
+  const { user, dbUser } = useAuth();
   const [showModal, setShowModal] = useState(false);
+  const [isWanted, setIsWanted] = useState(false);
+  const [interestCount, setInterestCount] = useState(product.interestCount || 0);
 
   const cartItem = cart.find((item) => item.id === product.id);
   const quantity = cartItem ? cartItem.quantity : 0;
 
   const isComingSoon = Boolean(product.comingSoon);
   const isSoldOut = !isComingSoon && (!product.available || (product.stock !== undefined && product.stock <= 0));
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const wanted = localStorage.getItem('hive_wanted_' + product.id) === 'true';
+      setIsWanted(wanted);
+    }
+  }, [product.id]);
+
+  useEffect(() => {
+    if (product.interestCount !== undefined) {
+      setInterestCount(product.interestCount);
+    }
+  }, [product.interestCount]);
+
+  const handleToggleInterest = async (e) => {
+    if (e) e.stopPropagation();
+
+    // Get or create persistent guest ID
+    let guestId = '';
+    if (!user && typeof window !== 'undefined') {
+      guestId = localStorage.getItem('hive_guest_id');
+      if (!guestId) {
+        guestId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+        localStorage.setItem('hive_guest_id', guestId);
+      }
+    }
+
+    const nextWanted = !isWanted;
+    setIsWanted(nextWanted);
+    setInterestCount((prev) => Math.max(0, prev + (nextWanted ? 1 : -1)));
+
+    if (typeof window !== 'undefined') {
+      if (nextWanted) {
+        localStorage.setItem('hive_wanted_' + product.id, 'true');
+        showToast(`Added to your wishlist! We'll notify when ${product.name} launches 🎉`, 'success');
+      } else {
+        localStorage.removeItem('hive_wanted_' + product.id);
+        showToast(`Removed from wishlist.`, 'info');
+      }
+    }
+
+    try {
+      await fetch('/api/coming-soon/interest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: product.id,
+          productName: product.name,
+          userId: user?.uid || null,
+          userName: dbUser?.name || user?.displayName || '',
+          userPhone: user?.phoneNumber || dbUser?.phone || '',
+          guestId: guestId || null,
+          action: nextWanted ? 'add' : 'remove',
+        }),
+      });
+    } catch (err) {
+      console.error('Error toggling product interest:', err);
+    }
+  };
 
   const handleIncrement = (e) => {
     if (e) e.stopPropagation();
@@ -68,9 +131,20 @@ export default function ProductCard({ product }) {
             priority={product.sortOrder <= 4}
           />
           {isComingSoon && (
-            <div className="product-coming-soon-badge">
-              <span>✦</span> Coming Soon
-            </div>
+            <>
+              <div className="product-coming-soon-badge">
+                <span>✦</span> Coming Soon
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleInterest}
+                className={`product-card-heart-btn ${isWanted ? 'wanted' : ''}`}
+                aria-label="I want this item"
+                title={isWanted ? "You want this!" : "I want this!"}
+              >
+                <Heart size={15} fill={isWanted ? "#ef4444" : "rgba(0,0,0,0.3)"} color={isWanted ? "#ef4444" : "#ffffff"} />
+              </button>
+            </>
           )}
           {isSoldOut && (
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'var(--error)', fontSize: '0.9rem', letterSpacing: '0.5px' }}>
@@ -102,17 +176,18 @@ export default function ProductCard({ product }) {
           <div className="product-card-footer">
             <div className="product-card-price">₱{product.price}</div>
             {isComingSoon ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowModal(true);
-                }}
-                className="coming-soon-card-btn"
-                aria-label="Preview item"
-              >
-                Preview
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button
+                  type="button"
+                  onClick={handleToggleInterest}
+                  className={`coming-soon-want-btn ${isWanted ? 'wanted' : ''}`}
+                  aria-label="I want this item"
+                >
+                  <Heart size={13} fill={isWanted ? "#ef4444" : "none"} color={isWanted ? "#ef4444" : "currentColor"} />
+                  <span>{isWanted ? 'Wanted' : 'I Want This'}</span>
+                  {interestCount > 0 && <span className="want-count">({interestCount})</span>}
+                </button>
+              </div>
             ) : quantity > 0 ? (
               <div className="qty-control" onClick={(e) => e.stopPropagation()}>
                 <button onClick={handleDecrement} className="qty-btn qty-btn-minus" aria-label="Decrease quantity"><Minus size={14} strokeWidth={2.5} /></button>
@@ -186,25 +261,35 @@ export default function ProductCard({ product }) {
               {/* Action Buttons in Modal */}
               <div style={{ marginTop: '8px' }}>
                 {isComingSoon ? (
-                  <button
-                    disabled
-                    className="btn btn-block btn-pill"
-                    style={{
-                      padding: '14px',
-                      fontSize: '0.95rem',
-                      fontWeight: 700,
-                      background: 'rgba(196, 98, 45, 0.08)',
-                      color: 'var(--accent, #c4622d)',
-                      border: '1.5px dashed rgba(196, 98, 45, 0.35)',
-                      cursor: 'default',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    <span>✦</span> Launching Soon — Stay Tuned!
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={handleToggleInterest}
+                      className={`btn btn-block btn-pill ${isWanted ? 'btn-wanted-active' : 'btn-primary'}`}
+                      style={{
+                        padding: '14px',
+                        fontSize: '0.96rem',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <Heart size={18} fill={isWanted ? "#ef4444" : "none"} color={isWanted ? "#ef4444" : "currentColor"} />
+                      <span>{isWanted ? '❤️ You Want This! (On Wishlist)' : '🙋 I Want This! (Vote to Launch)'}</span>
+                    </button>
+
+                    <div style={{ textAlign: 'center', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                      {interestCount > 0 ? (
+                        <span>🔥 <strong>{interestCount}</strong> {interestCount === 1 ? 'islander wants' : 'islanders want'} this on the menu!</span>
+                      ) : (
+                        <span>Be the first islander to vote and bring this to Bantayan! 🏝️</span>
+                      )}
+                    </div>
+                  </div>
                 ) : quantity > 0 ? (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--card-bg-accent)', padding: '10px 16px', borderRadius: '30px' }}>
                     <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>In Your Cart:</span>

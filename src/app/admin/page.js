@@ -8,7 +8,7 @@ import { useToast } from '../../contexts/ToastContext';
 import StatusBadge from '../../components/StatusBadge';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Link from 'next/link';
-import { Truck, Smartphone, Users, ChevronDown } from 'lucide-react';
+import { Truck, Smartphone, Users, ChevronDown, Lightbulb, Heart, Trash2 } from 'lucide-react';
 
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || '1234';
 
@@ -24,6 +24,8 @@ export default function AdminPage() {
   const [riders, setRiders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(true);
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('pending');
   const [inventoryCategory, setInventoryCategory] = useState('all'); // all | cake | milkshake
   const [broadcasting, setBroadcasting] = useState(null); // null | 'restock' | 'open' | 'closed'
@@ -209,6 +211,47 @@ export default function AdminPage() {
 
     return () => unsubscribe();
   }, [isAuthenticated]);
+
+  // Fetch customer suggestions in real time
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const q = query(collection(db, 'suggestions'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const suggestionsData = [];
+      querySnapshot.forEach((doc) => {
+        suggestionsData.push({ id: doc.id, ...doc.data() });
+      });
+      setSuggestions(suggestionsData);
+      setSuggestionsLoading(false);
+    }, (error) => {
+      console.error('Error listening to suggestions:', error);
+      setSuggestionsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [isAuthenticated]);
+
+  const handleUpdateSuggestionStatus = async (id, status) => {
+    try {
+      await updateDoc(doc(db, 'suggestions', id), { status });
+      showToast(`Suggestion marked as ${status}!`, 'success');
+    } catch (err) {
+      console.error('Error updating suggestion status:', err);
+      showToast('Failed to update suggestion status', 'error');
+    }
+  };
+
+  const handleDeleteSuggestion = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this suggestion?')) return;
+    try {
+      await deleteDoc(doc(db, 'suggestions', id));
+      showToast('Suggestion deleted', 'info');
+    } catch (err) {
+      console.error('Error deleting suggestion:', err);
+      showToast('Failed to delete suggestion', 'error');
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -531,6 +574,14 @@ export default function AdminPage() {
         >
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
             <Smartphone size={14} /> Riders ({riders.length})
+          </span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('suggestions')}
+          className={`category-tab ${activeTab === 'suggestions' ? 'active' : ''}`}
+        >
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <Lightbulb size={14} /> Suggestions ({suggestions.length})
           </span>
         </button>
       </div>
@@ -895,8 +946,22 @@ export default function AdminPage() {
                   .map(p => (
                     <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#fafafa', borderRadius: '12px', border: '1px solid #eee' }}>
                       <div>
-                        <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{p.name}</div>
-                        <div className="text-xs text-secondary">₱{p.price} • {p.category === 'cake' ? '🍰 TIRAMISU' : '🥤 MILKSHAKE'}</div>
+                        <div style={{ fontWeight: 'bold', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>{p.name}</span>
+                          {p.comingSoon && (
+                            <span style={{ fontSize: '10px', background: 'rgba(196, 98, 45, 0.12)', color: 'var(--accent)', padding: '1px 6px', borderRadius: '8px', fontWeight: 700 }}>
+                              COMING SOON
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-secondary">
+                          ₱{p.price} • {p.category === 'cake' ? '🍰 TIRAMISU' : '🥤 DRINKS'}
+                          {p.interestCount > 0 && (
+                            <span style={{ marginLeft: '6px', color: '#ef4444', fontWeight: 600 }}>
+                              • ❤️ {p.interestCount} {p.interestCount === 1 ? 'person wants' : 'people want'} this
+                            </span>
+                          )}
+                        </div>
                       </div>
                       
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -1054,6 +1119,183 @@ export default function AdminPage() {
               <code>{typeof window !== 'undefined' ? `${window.location.origin}/admin/rider` : '/admin/rider'}</code>
               <span className="text-xs" style={{ color: 'var(--accent)' }}>Tap to copy</span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab Contents: Customer Suggestions & Wishlist */}
+      {activeTab === 'suggestions' && (
+        <div className="flex flex-col gap-md">
+          {/* Coming Soon Demand Summary */}
+          <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <Heart size={18} color="#ef4444" fill="#ef4444" />
+              <h3 className="section-title" style={{ margin: 0 }}>Upcoming Drinks Wishlist Demand</h3>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+              {products.filter(p => p.comingSoon).map(prod => (
+                <div key={prod.id} style={{ padding: '14px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '14px' }}>{prod.name}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>₱{prod.price} • Coming Soon</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ef4444' }}>
+                      {prod.interestCount || 0}
+                    </div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 600 }}>WANTS</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Customer Flavor Suggestions */}
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Lightbulb size={18} color="#f59e0b" />
+                <h3 className="section-title" style={{ margin: 0 }}>Customer Flavor Ideas ({suggestions.length})</h3>
+              </div>
+            </div>
+
+            {suggestionsLoading ? (
+              <LoadingSpinner />
+            ) : suggestions.length === 0 ? (
+              <div style={{ padding: '36px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                <Lightbulb size={36} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
+                <p style={{ fontWeight: 600, margin: 0 }}>No customer suggestions yet.</p>
+                <p style={{ fontSize: '0.82rem', marginTop: '4px' }}>
+                  When island visitors tap "Request a Flavor" on the Coming Soon tab, their ideas will appear here!
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {suggestions.map((item) => {
+                  const categoryLabels = {
+                    shake: '🥤 Milkshake',
+                    coffee: '☕ Coffee / Drink',
+                    cake: '🍰 Tiramisu / Cake',
+                    other: '✨ Other Treat'
+                  };
+
+                  const statusColors = {
+                    new: { bg: '#fef3c7', text: '#d97706', label: 'New Idea' },
+                    considering: { bg: '#dcfce7', text: '#15803d', label: 'Under Consideration' },
+                    planned: { bg: '#e0e7ff', text: '#4338ca', label: 'Planned for Menu' },
+                    archived: { bg: '#f3f4f6', text: '#6b7280', label: 'Archived' }
+                  };
+
+                  const currentStatus = statusColors[item.status] || statusColors.new;
+
+                  return (
+                    <div 
+                      key={item.id}
+                      style={{ 
+                        padding: '16px', 
+                        borderRadius: '12px', 
+                        border: '1px solid var(--border)', 
+                        background: '#ffffff',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                              {item.title}
+                            </span>
+                            <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '12px', background: currentStatus.bg, color: currentStatus.text }}>
+                              {currentStatus.label}
+                            </span>
+                            <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '12px', background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+                              {categoryLabels[item.category] || item.category}
+                            </span>
+                          </div>
+
+                          {item.notes && (
+                            <p style={{ margin: '6px 0 0', fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                              "{item.notes}"
+                            </p>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <button
+                            onClick={() => handleUpdateSuggestionStatus(item.id, item.status === 'considering' ? 'new' : 'considering')}
+                            className="btn btn-xs"
+                            style={{ 
+                              background: item.status === 'considering' ? '#dcfce7' : 'var(--bg-secondary)', 
+                              color: item.status === 'considering' ? '#15803d' : 'var(--text-primary)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '14px',
+                              padding: '4px 10px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {item.status === 'considering' ? '✓ Considering' : 'Consider'}
+                          </button>
+
+                          <button
+                            onClick={() => handleUpdateSuggestionStatus(item.id, item.status === 'archived' ? 'new' : 'archived')}
+                            className="btn btn-xs"
+                            style={{ 
+                              background: 'var(--bg-secondary)', 
+                              color: 'var(--text-secondary)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '14px',
+                              padding: '4px 10px',
+                              fontSize: '11px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {item.status === 'archived' ? 'Unarchive' : 'Archive'}
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteSuggestion(item.id)}
+                            style={{ 
+                              background: 'transparent', 
+                              border: 'none', 
+                              color: '#9ca3af', 
+                              cursor: 'pointer',
+                              padding: '4px',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}
+                            title="Delete suggestion"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Customer attribution info */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: 'var(--text-secondary)', paddingTop: '8px', borderTop: '1px dashed var(--border)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span>Suggested by: <strong>{item.userName || 'Anonymous'}</strong></span>
+                          {item.userPhone && (
+                            <a 
+                              href={`tel:${item.userPhone}`} 
+                              style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}
+                            >
+                              📞 {item.userPhone}
+                            </a>
+                          )}
+                        </div>
+                        <div>
+                          {item.createdAt && new Date(item.createdAt?.seconds ? item.createdAt.seconds * 1000 : item.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

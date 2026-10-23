@@ -8,6 +8,7 @@ import { collection, query, orderBy, onSnapshot, writeBatch, doc } from 'firebas
 import { products as fallbackProducts } from '../lib/products';
 import ProductCard from '../components/ProductCard';
 import LoadingSpinner from '../components/LoadingSpinner';
+import SuggestItemModal from '../components/SuggestItemModal';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ShoppingBag, Clock, MapPin, X } from 'lucide-react';
@@ -22,6 +23,7 @@ export default function MenuPage() {
   const [category, setCategory] = useState('cake');
   const [isOpen, setIsOpen] = useState(true);
   const [requestingGps, setRequestingGps] = useState(false);
+  const [showSuggestModal, setShowSuggestModal] = useState(false);
   const [showBanner, setShowBanner] = useState(() => {
     if (typeof window !== 'undefined') {
       return sessionStorage.getItem('bannerDismissed') !== 'true';
@@ -221,12 +223,41 @@ export default function MenuPage() {
           <LoadingSpinner />
         </div>
       ) : (
-        <div className="product-grid">
-          {filteredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        <>
+          <div className="product-grid">
+            {filteredProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+
+          {category === 'milkshake' && (
+            <div className="suggest-flavor-banner">
+              <div className="suggest-flavor-header">
+                <span className="suggest-flavor-icon">💡</span>
+                <div>
+                  <h4 className="suggest-flavor-title">Have a Flavor in Mind?</h4>
+                  <p className="suggest-flavor-desc">
+                    Tell us what shake, coffee drink, or dessert you want to see on Bantayan Hive!
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowSuggestModal(true)}
+                className="suggest-flavor-btn"
+              >
+                <span>✨</span> Request a Flavor
+              </button>
+            </div>
+          )}
+        </>
       )}
+
+      {/* Suggest Item Modal */}
+      <SuggestItemModal 
+        isOpen={showSuggestModal} 
+        onClose={() => setShowSuggestModal(false)} 
+      />
 
       {/* Floating Bottom Cart Bar */}
       {cartCount > 0 && (
