@@ -6,7 +6,7 @@ import { useCart } from '../../contexts/CartContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useRouter } from 'next/navigation';
 import { db } from '../../lib/firebase';
-import { collection, addDoc, writeBatch, doc, increment } from 'firebase/firestore';
+import { collection, addDoc, writeBatch, doc, increment, onSnapshot } from 'firebase/firestore';
 import LiveLocationPreview from '../../components/LiveLocationPreview';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Image from 'next/image';
@@ -36,14 +36,27 @@ export default function CartPage() {
     }
   }, [user, router]);
 
-  // Verify store status
+  // Verify real-time store status from Firestore with schedule fallback
   useEffect(() => {
-    const checkStoreStatus = () => {
+    const checkSchedule = () => {
       const now = new Date();
       const hour = now.getHours();
-      setIsOpen(hour >= 8 && hour < 24);
+      return hour >= 8 && hour < 24;
     };
-    checkStoreStatus();
+
+    const statusDocRef = doc(db, 'settings', 'storeStatus');
+    const unsubscribe = onSnapshot(statusDocRef, (snap) => {
+      if (snap.exists() && typeof snap.data().isOpen === 'boolean') {
+        setIsOpen(snap.data().isOpen);
+      } else {
+        setIsOpen(checkSchedule());
+      }
+    }, (err) => {
+      console.warn('Could not listen to store status doc in cart, falling back to schedule:', err);
+      setIsOpen(checkSchedule());
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const handleRefreshGps = async () => {

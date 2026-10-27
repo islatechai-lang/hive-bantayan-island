@@ -38,22 +38,34 @@ export default function MenuPage() {
     }
   }, [user, authLoading, router]);
 
-  // Check if store is open (8AM - 12AM) and trigger automated broadcast check
+  // Real-time store open/closed status from Firestore with automatic schedule fallback
   useEffect(() => {
-    const checkStoreStatus = () => {
+    const checkSchedule = () => {
       const now = new Date();
       const hour = now.getHours();
-      setIsOpen(hour >= 8 && hour < 24);
-
-      // Trigger automatic store hours push broadcast check at 8 AM (open) & 12 AM (close)
-      if (hour === 8 || hour === 0) {
-        fetch('/api/cron/store-hours').catch(() => {});
-      }
+      return hour >= 8 && hour < 24;
     };
 
-    checkStoreStatus();
-    const interval = setInterval(checkStoreStatus, 60000);
-    return () => clearInterval(interval);
+    const statusDocRef = doc(db, 'settings', 'storeStatus');
+    const unsubscribe = onSnapshot(statusDocRef, (snap) => {
+      if (snap.exists() && typeof snap.data().isOpen === 'boolean') {
+        setIsOpen(snap.data().isOpen);
+      } else {
+        setIsOpen(checkSchedule());
+      }
+    }, (err) => {
+      console.warn('Could not listen to store status doc, falling back to schedule:', err);
+      setIsOpen(checkSchedule());
+    });
+
+    // Check automated cron broadcast at 8 AM / 12 AM
+    const now = new Date();
+    const hour = now.getHours();
+    if (hour === 8 || hour === 0) {
+      fetch('/api/cron/store-hours').catch(() => {});
+    }
+
+    return () => unsubscribe();
   }, []);
 
   // Fetch products from Firestore in real-time with automatic sync and obsolete product cleanup

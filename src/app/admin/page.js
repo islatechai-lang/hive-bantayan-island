@@ -32,7 +32,7 @@ export default function AdminPage() {
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [assigningOrderId, setAssigningOrderId] = useState(null);
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
-  const [testingPush, setTestingPush] = useState(false);
+  const [storeIsOpen, setStoreIsOpen] = useState(true);
   const [viewingReceiptUrl, setViewingReceiptUrl] = useState(null);
 
   const initialLoadRef = useRef(true);
@@ -56,10 +56,39 @@ export default function AdminPage() {
     };
   }, [assigningOrderId]);
 
-  // Broadcast Notification Handler to all registered customer app devices
+  // Real-time store status listener in admin
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const unsub = onSnapshot(doc(db, 'settings', 'storeStatus'), (snap) => {
+      if (snap.exists() && typeof snap.data().isOpen === 'boolean') {
+        setStoreIsOpen(snap.data().isOpen);
+      }
+    }, (err) => {
+      console.warn('Admin storeStatus subscription warning:', err);
+    });
+    return () => unsub();
+  }, [isAuthenticated]);
+
+  // Broadcast Notification Handler to all registered customer app devices & manage Store Status
   const handleSendBroadcast = async (type) => {
     setBroadcasting(type);
     try {
+      // 1. Immediately update storeStatus in Firestore if opening or closing
+      if (type === 'open' || type === 'closed') {
+        const nextIsOpen = type === 'open';
+        setStoreIsOpen(nextIsOpen);
+        try {
+          await setDoc(doc(db, 'settings', 'storeStatus'), {
+            isOpen: nextIsOpen,
+            lastAction: type,
+            updatedAt: new Date().toISOString(),
+          }, { merge: true });
+        } catch (dbErr) {
+          console.warn('Direct storeStatus update warning:', dbErr);
+        }
+      }
+
+      // 2. Call broadcast API route (also updates adminDb and triggers OneSignal push)
       const res = await fetch('/api/admin/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -70,44 +99,18 @@ export default function AdminPage() {
 
       if (!res.ok) throw new Error(data.error || 'Failed to send broadcast');
 
-      const recipients = data.pushResult?.data?.recipients;
-      if (recipients === 0) {
-        showToast(`📢 ${type.toUpperCase()} alert sent (0 registered devices reached)`, 'info');
-      } else if (recipients > 0) {
-        showToast(`📢 ${type.toUpperCase()} broadcast sent to ${recipients} device(s)!`, 'success');
+      if (type === 'open') {
+        showToast('🟢 Store is now OPEN & broadcast alert sent!', 'success');
+      } else if (type === 'closed') {
+        showToast('🔴 Store is now CLOSED & broadcast alert sent!', 'success');
       } else {
-        showToast(`📢 ${type.toUpperCase()} notification sent to all app customers!`, 'success');
+        showToast('📢 Restock notification sent to all app customers!', 'success');
       }
     } catch (err) {
       console.error('Broadcast error:', err);
       showToast('Failed to send broadcast: ' + err.message, 'error');
     } finally {
       setBroadcasting(null);
-    }
-  };
-
-  // Test OneSignal Push notification endpoint
-  const handleTestPushNotification = async () => {
-    setTestingPush(true);
-    try {
-      const res = await fetch('/api/onesignal/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sendToAll: true })
-      });
-      const data = await res.json();
-      console.log('⚡ Test Push API Result:', data);
-      
-      const recipients = data.pushResult?.data?.recipients || 0;
-      const ok = data.pushResult?.ok;
-      const status = data.pushResult?.status;
-      const errorMsg = data.pushResult?.data?.errors ? JSON.stringify(data.pushResult.data.errors) : (data.error || 'None');
-
-      alert(`⚡ OneSignal Push Test Result:\n\nHTTP Status: ${status || 'N/A'}\nAPI Success: ${ok ? 'YES' : 'NO'}\nRecipients Reached: ${recipients}\nErrors: ${errorMsg}\n\nFull Diagnostic Payload:\n${JSON.stringify(data, null, 2)}`);
-    } catch (e) {
-      alert(`Test push failed: ${e.message}`);
-    } finally {
-      setTestingPush(false);
     }
   };
 
@@ -487,15 +490,22 @@ export default function AdminPage() {
             )}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button
-            onClick={handleTestPushNotification}
-            disabled={testingPush}
-            className="btn btn-sm btn-pill"
-            style={{ background: '#fff', border: '1px solid var(--accent)', color: 'var(--accent)', fontWeight: 600 }}
-          >
-            {testingPush ? 'Testing...' : '⚡ Test OneSignal Push'}
-          </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ 
+            fontSize: '12px', 
+            fontWeight: 700, 
+            padding: '6px 12px', 
+            borderRadius: '20px', 
+            background: storeIsOpen ? '#dcfce7' : '#fee2e2', 
+            color: storeIsOpen ? '#15803d' : '#b91c1c',
+            border: `1px solid ${storeIsOpen ? '#86efac' : '#fca5a5'}`,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: storeIsOpen ? '#22c55e' : '#ef4444' }}></span>
+            <span>Store: {storeIsOpen ? 'OPEN' : 'CLOSED'}</span>
+          </div>
           <button 
             onClick={handleLogout}
             className="btn btn-secondary btn-sm btn-pill"
@@ -842,11 +852,24 @@ export default function AdminPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Broadcast Push Notifications Card */}
           <div className="card" style={{ background: 'linear-gradient(135deg, #fff5f7 0%, #fff 100%)', border: '1px solid #f8d7da' }}>
-            <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent)', marginBottom: '8px' }}>
-              📢 Broadcast Customer Push Notifications
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+              <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent)', margin: 0 }}>
+                📢 Broadcast &amp; Store Status Controls
+              </h3>
+              <div style={{ 
+                fontSize: '11px', 
+                fontWeight: 700, 
+                padding: '4px 10px', 
+                borderRadius: '16px', 
+                background: storeIsOpen ? '#dcfce7' : '#fee2e2', 
+                color: storeIsOpen ? '#15803d' : '#b91c1c',
+                border: `1px solid ${storeIsOpen ? '#86efac' : '#fca5a5'}`
+              }}>
+                Live Store Status: {storeIsOpen ? '🟢 OPEN' : '🔴 CLOSED'}
+              </div>
+            </div>
             <p className="text-xs text-secondary mb-md">
-              Send an instant push notification alert to all app customers on their phones with 1-click.
+              Send an instant push alert to customers. Clicking <strong>Broadcast Store Open</strong> or <strong>Broadcast Store Closed</strong> immediately updates the live store status across the customer app and cart.
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
@@ -863,18 +886,42 @@ export default function AdminPage() {
                 onClick={() => handleSendBroadcast('open')}
                 disabled={broadcasting !== null}
                 className="btn btn-sm"
-                style={{ background: '#28a745', color: '#fff', border: 'none', borderRadius: '20px', padding: '10px 14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                style={{ 
+                  background: '#28a745', 
+                  color: '#fff', 
+                  border: 'none', 
+                  borderRadius: '20px', 
+                  padding: '10px 14px', 
+                  fontWeight: 600, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '6px',
+                  boxShadow: storeIsOpen ? '0 0 0 2px #fff, 0 0 0 4px #28a745' : 'none'
+                }}
               >
-                🟢 {broadcasting === 'open' ? 'Broadcasting...' : 'Broadcast Store Open'}
+                🟢 {broadcasting === 'open' ? 'Opening Store...' : 'Broadcast Store Open'}
               </button>
 
               <button
                 onClick={() => handleSendBroadcast('closed')}
                 disabled={broadcasting !== null}
                 className="btn btn-sm"
-                style={{ background: '#dc3545', color: '#fff', border: 'none', borderRadius: '20px', padding: '10px 14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                style={{ 
+                  background: '#dc3545', 
+                  color: '#fff', 
+                  border: 'none', 
+                  borderRadius: '20px', 
+                  padding: '10px 14px', 
+                  fontWeight: 600, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '6px',
+                  boxShadow: !storeIsOpen ? '0 0 0 2px #fff, 0 0 0 4px #dc3545' : 'none'
+                }}
               >
-                🔴 {broadcasting === 'closed' ? 'Broadcasting...' : 'Broadcast Store Closed'}
+                🔴 {broadcasting === 'closed' ? 'Closing Store...' : 'Broadcast Store Closed'}
               </button>
             </div>
           </div>

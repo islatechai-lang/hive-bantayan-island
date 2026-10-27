@@ -60,5 +60,11 @@ service cloud.firestore {
     match /product_interests/{interestId} {
       allow read, write: if true;
     }
+
+    // 7. Store Settings & Open/Closed Status
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
   }
 }
