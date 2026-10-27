@@ -46,7 +46,7 @@ export default function MenuPage() {
       return hour >= 8 && hour < 24;
     };
 
-    const statusDocRef = doc(db, 'settings', 'storeStatus');
+    const statusDocRef = doc(db, 'products', 'store_status');
     const unsubscribe = onSnapshot(statusDocRef, (snap) => {
       if (snap.exists() && typeof snap.data().isOpen === 'boolean') {
         setIsOpen(snap.data().isOpen);
@@ -78,6 +78,7 @@ export default function MenuPage() {
 
       // 1. Purge obsolete items from Firestore (e.g. matcha-tiramisu, strawberry-tiramisu)
       querySnapshot.forEach((docSnap) => {
+        if (docSnap.id === 'store_status') return;
         if (!validIds.has(docSnap.id)) {
           batch.delete(doc(db, 'products', docSnap.id));
           needsBatchCommit = true;

@@ -59,7 +59,7 @@ export default function AdminPage() {
   // Real-time store status listener in admin
   useEffect(() => {
     if (!isAuthenticated) return;
-    const unsub = onSnapshot(doc(db, 'settings', 'storeStatus'), (snap) => {
+    const unsub = onSnapshot(doc(db, 'products', 'store_status'), (snap) => {
       if (snap.exists() && typeof snap.data().isOpen === 'boolean') {
         setStoreIsOpen(snap.data().isOpen);
       }
@@ -78,7 +78,7 @@ export default function AdminPage() {
         const nextIsOpen = type === 'open';
         setStoreIsOpen(nextIsOpen);
         try {
-          await setDoc(doc(db, 'settings', 'storeStatus'), {
+          await setDoc(doc(db, 'products', 'store_status'), {
             isOpen: nextIsOpen,
             lastAction: type,
             updatedAt: new Date().toISOString(),
@@ -88,16 +88,20 @@ export default function AdminPage() {
         }
       }
 
-      // 2. Call broadcast API route (also updates adminDb and triggers OneSignal push)
-      const res = await fetch('/api/admin/broadcast', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type })
-      });
-      const data = await res.json();
-      console.log('📢 [Admin] Broadcast API & OneSignal Result:', data);
-
-      if (!res.ok) throw new Error(data.error || 'Failed to send broadcast');
+      // 2. Call broadcast API route (triggers OneSignal push)
+      let pushOk = false;
+      try {
+        const res = await fetch('/api/admin/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type })
+        });
+        const data = await res.json().catch(() => ({}));
+        console.log('📢 [Admin] Broadcast API & OneSignal Result:', data);
+        pushOk = res.ok;
+      } catch (fetchErr) {
+        console.warn('Broadcast API push dispatch warning:', fetchErr);
+      }
 
       if (type === 'open') {
         showToast('🟢 Store is now OPEN & broadcast alert sent!', 'success');
@@ -108,7 +112,7 @@ export default function AdminPage() {
       }
     } catch (err) {
       console.error('Broadcast error:', err);
-      showToast('Failed to send broadcast: ' + err.message, 'error');
+      showToast('Broadcast error: ' + err.message, 'error');
     } finally {
       setBroadcasting(null);
     }
@@ -185,6 +189,7 @@ export default function AdminPage() {
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const productsData = [];
       querySnapshot.forEach((doc) => {
+        if (doc.id === 'store_status') return;
         productsData.push({ id: doc.id, ...doc.data() });
       });
       setProducts(productsData);

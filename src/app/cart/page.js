@@ -44,7 +44,7 @@ export default function CartPage() {
       return hour >= 8 && hour < 24;
     };
 
-    const statusDocRef = doc(db, 'settings', 'storeStatus');
+    const statusDocRef = doc(db, 'products', 'store_status');
     const unsubscribe = onSnapshot(statusDocRef, (snap) => {
       if (snap.exists() && typeof snap.data().isOpen === 'boolean') {
         setIsOpen(snap.data().isOpen);
