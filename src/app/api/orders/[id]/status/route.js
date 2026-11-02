@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { sendPushNotification } from '@/lib/onesignal';
 
 function getAdminDb() {
@@ -33,7 +33,7 @@ export async function PATCH(request, { params }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status } = body;
+    const { status, cancelledBy, cancelReason } = body;
 
     if (!status) {
       return NextResponse.json({ error: 'Status is required' }, { status: 400 });
@@ -53,11 +53,41 @@ export async function PATCH(request, { params }) {
 
     const orderData = orderDoc.data();
 
-    // Update Firestore
-    await orderRef.update({
+    // Prepare update data
+    const updatePayload = {
       status,
       updatedAt: new Date().toISOString()
-    });
+    };
+
+    if (status === 'cancelled') {
+      updatePayload.cancelledBy = cancelledBy || 'admin';
+      updatePayload.cancelledAt = new Date().toISOString();
+      if (cancelReason) {
+        updatePayload.cancelReason = cancelReason;
+      }
+    }
+
+    // Update Firestore
+    await orderRef.update(updatePayload);
+
+    // If order is newly cancelled, restore product stock back to inventory
+    if (status === 'cancelled' && orderData.status !== 'cancelled' && Array.isArray(orderData.items)) {
+      try {
+        const batch = adminDb.batch();
+        orderData.items.forEach((item) => {
+          if (item.id && item.quantity) {
+            const productRef = adminDb.collection('products').doc(item.id);
+            batch.update(productRef, {
+              stock: FieldValue.increment(item.quantity)
+            });
+          }
+        });
+        await batch.commit();
+        console.log(`Restored stock for cancelled order #${id}`);
+      } catch (stockErr) {
+        console.error('Failed to restore stock on cancel:', stockErr);
+      }
+    }
 
     // Notify customer via OneSignal
     let pushHeading = 'Order Update';
@@ -82,7 +112,9 @@ export async function PATCH(request, { params }) {
         break;
       case 'cancelled':
         pushHeading = 'Order Cancelled ❌';
-        pushContent = 'Your order was cancelled by admin. If you believe this is a mistake, please contact support.';
+        pushContent = cancelledBy === 'customer'
+          ? `Your order ${orderTotalFormatted ? `(${orderTotalFormatted}) ` : ''}has been cancelled as requested. You can place a new order anytime!`
+          : 'Your order was cancelled by admin. If you believe this is a mistake, please contact support.';
         break;
       default:
         pushContent = `Your order status changed to ${status}`;

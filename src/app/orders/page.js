@@ -2,20 +2,29 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { db } from '../../lib/firebase';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, writeBatch, increment } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import StatusBadge from '../../components/StatusBadge';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { ChevronLeft, Package } from 'lucide-react';
+import { ChevronLeft, Package, XCircle, AlertTriangle, X } from 'lucide-react';
 
 export default function OrdersPage() {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
+
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrder, setExpandedOrder] = useState(null);
   const [indexError, setIndexError] = useState(false);
+
+  // Cancellation state
+  const [cancellingOrder, setCancellingOrder] = useState(null);
+  const [cancelReason, setCancelReason] = useState('Mistake in order items');
+  const [customReason, setCustomReason] = useState('');
+  const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -53,6 +62,77 @@ export default function OrdersPage() {
       setExpandedOrder(null);
     } else {
       setExpandedOrder(orderId);
+    }
+  };
+
+  // Check if an order is eligible for cancellation by the customer
+  // Allowed while pending or preparing, BEFORE a rider has been assigned or out for delivery
+  const canCancelOrder = (order) => {
+    const isPendingOrPreparing = order.status === 'pending' || order.status === 'preparing';
+    const hasNoRider = !order.assignedRiderId && !order.assignedRiderName;
+    return isPendingOrPreparing && hasNoRider;
+  };
+
+  const handleOpenCancelModal = (e, order) => {
+    e.stopPropagation();
+    setCancellingOrder(order);
+    setCancelReason('Mistake in order items');
+    setCustomReason('');
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancellingOrder) return;
+    setIsSubmittingCancel(true);
+    const targetOrder = cancellingOrder;
+    const finalReason = cancelReason === 'Other' 
+      ? (customReason.trim() || 'Cancelled by customer') 
+      : cancelReason;
+
+    try {
+      // 1. Direct Firestore write: mark order cancelled and restore item stock
+      const batch = writeBatch(db);
+      const orderRef = doc(db, 'orders', targetOrder.id);
+      
+      batch.update(orderRef, {
+        status: 'cancelled',
+        cancelledBy: 'customer',
+        cancelReason: finalReason,
+        cancelledAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+
+      // Restore product stock count
+      if (Array.isArray(targetOrder.items)) {
+        targetOrder.items.forEach((item) => {
+          if (item.id && item.quantity) {
+            const productRef = doc(db, 'products', item.id);
+            batch.update(productRef, {
+              stock: increment(item.quantity)
+            });
+          }
+        });
+      }
+
+      await batch.commit();
+
+      // 2. Trigger status API route to notify admin and send push notification
+      fetch(`/api/orders/${targetOrder.id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'cancelled',
+          cancelledBy: 'customer',
+          cancelReason: finalReason
+        })
+      }).catch(apiErr => console.warn('Status API notify warning:', apiErr));
+
+      showToast(`Order #${targetOrder.id.slice(-6).toUpperCase()} was cancelled.`, 'info');
+      setCancellingOrder(null);
+    } catch (err) {
+      console.error('Error cancelling order:', err);
+      showToast('Failed to cancel order: ' + err.message, 'error');
+    } finally {
+      setIsSubmittingCancel(false);
     }
   };
 
@@ -106,6 +186,7 @@ export default function OrdersPage() {
               hour: '2-digit',
               minute: '2-digit',
             });
+            const cancellable = canCancelOrder(order);
 
             return (
               <div key={order.id} className="order-card" style={{ cursor: 'pointer' }} onClick={() => toggleExpand(order.id)}>
@@ -148,16 +229,203 @@ export default function OrdersPage() {
                         </a>
                       </div>
                     )}
+
+                    {/* Rider assignment notice */}
+                    {order.assignedRiderName && (
+                      <div style={{ background: '#e8f7ef', padding: '8px 12px', borderRadius: '8px', color: '#15803d', fontSize: '12px', fontWeight: 600 }}>
+                        🛵 Rider assigned: {order.assignedRiderName}
+                      </div>
+                    )}
+
+                    {/* Cancelled notice */}
+                    {order.status === 'cancelled' && (
+                      <div style={{ background: '#fdecec', padding: '8px 12px', borderRadius: '8px', color: '#c0392b', fontSize: '12px' }}>
+                        <strong>Order was cancelled {order.cancelledBy === 'customer' ? 'by you' : 'by store'}</strong>
+                        {order.cancelReason && (
+                          <div style={{ marginTop: '2px', opacity: 0.9 }}>Reason: "{order.cancelReason}"</div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Cancellation eligibility note */}
+                    {cancellable && (
+                      <div style={{ background: '#fbfbfb', border: '1px dashed var(--border)', padding: '10px 12px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginTop: '4px' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                          Need to change items or address? You can cancel before a rider is dispatched.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => handleOpenCancelModal(e, order)}
+                          className="btn btn-sm"
+                          style={{
+                            background: '#fff0f0',
+                            color: '#c0392b',
+                            border: '1px solid #f8c0c0',
+                            borderRadius: '20px',
+                            padding: '6px 14px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <XCircle size={14} /> Cancel Order
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                <div className="order-card-footer">
-                  <div className="text-secondary text-sm">Total Amount</div>
-                  <div className="order-total">₱{order.total}</div>
+                <div className="order-card-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div className="text-secondary text-sm">Total Amount</div>
+                    <div className="order-total">₱{order.total}</div>
+                  </div>
+
+                  {/* Quick Cancel button visible even when card collapsed if eligible */}
+                  {cancellable && !isExpanded && (
+                    <button
+                      type="button"
+                      onClick={(e) => handleOpenCancelModal(e, order)}
+                      className="btn btn-sm"
+                      style={{
+                        background: '#fff0f0',
+                        color: '#c0392b',
+                        border: '1px solid #f8c0c0',
+                        borderRadius: '20px',
+                        padding: '6px 12px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <XCircle size={14} /> Cancel
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Confirmation Modal for Order Cancellation */}
+      {cancellingOrder && (
+        <div className="product-modal-backdrop" onClick={() => !isSubmittingCancel && setCancellingOrder(null)} style={{ zIndex: 1100 }}>
+          <div 
+            className="product-modal-content" 
+            onClick={(e) => e.stopPropagation()} 
+            style={{ maxWidth: '380px', padding: '24px 20px', borderRadius: '18px' }}
+          >
+            <button 
+              className="product-modal-close" 
+              onClick={() => !isSubmittingCancel && setCancellingOrder(null)} 
+              aria-label="Close modal"
+              style={{ top: '14px', right: '14px' }}
+            >
+              <X size={16} />
+            </button>
+
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              <div style={{ 
+                width: '48px', 
+                height: '48px', 
+                borderRadius: '50%', 
+                background: '#fee2e2', 
+                color: '#dc2626', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                margin: '0 auto 12px'
+              }}>
+                <AlertTriangle size={24} strokeWidth={2.2} />
+              </div>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: '0 0 6px', color: 'var(--text-primary)' }}>
+                Cancel Order #{cancellingOrder.id.slice(-6).toUpperCase()}?
+              </h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
+                Are you sure you want to cancel this order? If you made a mistake, you can place a new order anytime.
+              </p>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px', color: 'var(--text-secondary)' }}>
+                REASON FOR CANCELLATION
+              </label>
+              <select
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: '1.5px solid var(--border)',
+                  fontSize: '0.88rem',
+                  background: 'var(--bg-primary)',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                }}
+              >
+                <option value="Mistake in order items">Ordered wrong items / quantities</option>
+                <option value="Change delivery address">Need to change delivery location</option>
+                <option value="Change payment method">Want to change payment method</option>
+                <option value="Changed my mind">Changed my mind / not craving anymore</option>
+                <option value="Other">Other reason</option>
+              </select>
+
+              {cancelReason === 'Other' && (
+                <input
+                  type="text"
+                  placeholder="Please specify..."
+                  value={customReason}
+                  onChange={(e) => setCustomReason(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    border: '1.5px solid var(--border)',
+                    fontSize: '0.88rem',
+                    background: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    marginTop: '8px'
+                  }}
+                />
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setCancellingOrder(null)}
+                disabled={isSubmittingCancel}
+                className="btn btn-secondary btn-block btn-pill"
+                style={{ padding: '12px', fontSize: '0.92rem', fontWeight: 600 }}
+              >
+                Keep Order
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCancel}
+                disabled={isSubmittingCancel}
+                className="btn btn-block btn-pill"
+                style={{
+                  padding: '12px',
+                  fontSize: '0.92rem',
+                  fontWeight: 700,
+                  background: '#dc2626',
+                  color: '#fff',
+                  border: 'none',
+                  boxShadow: '0 4px 12px rgba(220, 38, 38, 0.25)'
+                }}
+              >
+                {isSubmittingCancel ? 'Cancelling...' : 'Yes, Cancel'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

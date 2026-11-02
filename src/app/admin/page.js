@@ -324,7 +324,10 @@ export default function AdminPage() {
       const res = await fetch(`/api/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ 
+          status: newStatus,
+          cancelledBy: newStatus === 'cancelled' ? 'admin' : undefined
+        })
       });
 
       const data = await res.json();
@@ -786,7 +789,12 @@ export default function AdminPage() {
 
                       {order.status === 'cancelled' && (
                         <div style={{ flex: 1, padding: '8px 12px', background: '#fdecec', color: '#c0392b', borderRadius: '8px', fontWeight: 600, fontSize: '13px', textAlign: 'center' }}>
-                          ❌ Order Cancelled
+                          <div>❌ Order Cancelled {order.cancelledBy === 'customer' ? '(by Customer)' : '(by Admin)'}</div>
+                          {order.cancelReason && (
+                            <div style={{ fontSize: '11px', fontWeight: 500, color: '#900c3f', marginTop: '3px' }}>
+                              Reason: {order.cancelReason}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
