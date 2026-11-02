@@ -36,7 +36,7 @@ export default function CartPage() {
     }
   }, [user, router]);
 
-  // Verify real-time store status from Firestore with schedule reconciliation
+  // Verify real-time store status from Firestore
   useEffect(() => {
     const getPht = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
     const checkSchedule = () => {
@@ -54,6 +54,7 @@ export default function CartPage() {
         const todayDateStr = `${nowPht.getFullYear()}-${String(nowPht.getMonth() + 1).padStart(2, '0')}-${String(nowPht.getDate()).padStart(2, '0')}`;
 
         let shouldBeOpen = data.isOpen;
+        // If closed, but that was from yesterday and now it's after 8:00 AM PHT:
         if (!data.isOpen && data.updatedAt && currentHour >= 8 && currentHour < 24) {
           const lastUpdated = new Date(data.updatedAt);
           const lastUpdatedPht = new Date(lastUpdated.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
@@ -61,12 +62,8 @@ export default function CartPage() {
           if (lastUpdatedDateStr !== todayDateStr || lastUpdatedPht.getHours() < 8) {
             // New day has started! Store reopens at 8 AM
             shouldBeOpen = true;
-            fetch('/api/cron/store-hours').catch(() => {});
+            fetch('/api/cron/store-hours?action=open').catch(() => {});
           }
-        } else if (data.isOpen && currentHour < 8) {
-          // Store is closed past midnight
-          shouldBeOpen = false;
-          fetch('/api/cron/store-hours').catch(() => {});
         }
         setIsOpen(shouldBeOpen);
       } else {

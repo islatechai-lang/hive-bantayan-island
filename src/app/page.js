@@ -56,6 +56,7 @@ export default function MenuPage() {
         const todayDateStr = `${nowPht.getFullYear()}-${String(nowPht.getMonth() + 1).padStart(2, '0')}-${String(nowPht.getDate()).padStart(2, '0')}`;
 
         let shouldBeOpen = data.isOpen;
+        // If closed, but that was from yesterday and now it's after 8:00 AM PHT:
         if (!data.isOpen && data.updatedAt && currentHour >= 8 && currentHour < 24) {
           const lastUpdated = new Date(data.updatedAt);
           const lastUpdatedPht = new Date(lastUpdated.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
@@ -63,12 +64,8 @@ export default function MenuPage() {
           if (lastUpdatedDateStr !== todayDateStr || lastUpdatedPht.getHours() < 8) {
             // New business day! Trigger auto reopen
             shouldBeOpen = true;
-            fetch('/api/cron/store-hours').catch(() => {});
+            fetch('/api/cron/store-hours?action=open').catch(() => {});
           }
-        } else if (data.isOpen && currentHour < 8) {
-          // Midnight passed! Trigger auto close
-          shouldBeOpen = false;
-          fetch('/api/cron/store-hours').catch(() => {});
         }
         setIsOpen(shouldBeOpen);
       } else {
@@ -78,9 +75,6 @@ export default function MenuPage() {
       console.warn('Could not listen to store status doc, falling back to schedule:', err);
       setIsOpen(checkSchedule());
     });
-
-    // Run store hours check on load
-    fetch('/api/cron/store-hours').catch(() => {});
 
     return () => unsubscribe();
   }, []);

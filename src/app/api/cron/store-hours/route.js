@@ -88,8 +88,21 @@ async function handleStoreHoursCron(request) {
         }
       } else {
         // Scheduled: CLOSED (between 12:00 AM midnight and 7:59 AM)
+        // Only auto-close if the store was left open from yesterday before midnight
         if (storeStatusData.isOpen) {
-          actionToRun = 'close';
+          const lastUpdated = storeStatusData.updatedAt ? new Date(storeStatusData.updatedAt) : null;
+          let isLeftOpenFromYesterday = false;
+          if (lastUpdated) {
+            const lastUpdatedPht = new Date(lastUpdated.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+            const lastUpdatedDateStr = `${lastUpdatedPht.getFullYear()}-${String(lastUpdatedPht.getMonth() + 1).padStart(2, '0')}-${String(lastUpdatedPht.getDate()).padStart(2, '0')}`;
+            // If it was opened on a previous day, auto-close for the night
+            if (lastUpdatedDateStr !== todayDateStr) {
+              isLeftOpenFromYesterday = true;
+            }
+          }
+          if (isLeftOpenFromYesterday) {
+            actionToRun = 'close';
+          }
         }
       }
     }

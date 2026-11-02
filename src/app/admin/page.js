@@ -58,37 +58,16 @@ export default function AdminPage() {
     };
   }, [assigningOrderId]);
 
-  // Real-time store status listener in admin with automatic schedule reconciliation
+  // Real-time store status listener in admin: directly reflects Firestore products/store_status
   useEffect(() => {
     if (!isAuthenticated) return;
     const unsub = onSnapshot(doc(db, 'products', 'store_status'), (snap) => {
       if (snap.exists() && typeof snap.data().isOpen === 'boolean') {
-        const data = snap.data();
-        const nowPht = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
-        const currentHour = nowPht.getHours();
-        const todayDateStr = `${nowPht.getFullYear()}-${String(nowPht.getMonth() + 1).padStart(2, '0')}-${String(nowPht.getDate()).padStart(2, '0')}`;
-
-        let shouldBeOpen = data.isOpen;
-        if (!data.isOpen && data.updatedAt && currentHour >= 8 && currentHour < 24) {
-          const lastUpdated = new Date(data.updatedAt);
-          const lastUpdatedPht = new Date(lastUpdated.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
-          const lastUpdatedDateStr = `${lastUpdatedPht.getFullYear()}-${String(lastUpdatedPht.getMonth() + 1).padStart(2, '0')}-${String(lastUpdatedPht.getDate()).padStart(2, '0')}`;
-          if (lastUpdatedDateStr !== todayDateStr || lastUpdatedPht.getHours() < 8) {
-            shouldBeOpen = true;
-            fetch('/api/cron/store-hours').catch(() => {});
-          }
-        } else if (data.isOpen && currentHour < 8) {
-          shouldBeOpen = false;
-          fetch('/api/cron/store-hours').catch(() => {});
-        }
-        setStoreIsOpen(shouldBeOpen);
+        setStoreIsOpen(snap.data().isOpen);
       }
     }, (err) => {
       console.warn('Admin storeStatus subscription warning:', err);
     });
-
-    // Check store schedule status on load
-    fetch('/api/cron/store-hours').catch(() => {});
 
     return () => unsub();
   }, [isAuthenticated]);
