@@ -36,18 +36,39 @@ export default function CartPage() {
     }
   }, [user, router]);
 
-  // Verify real-time store status from Firestore with schedule fallback
+  // Verify real-time store status from Firestore with schedule reconciliation
   useEffect(() => {
+    const getPht = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
     const checkSchedule = () => {
-      const now = new Date();
-      const hour = now.getHours();
+      const nowPht = getPht();
+      const hour = nowPht.getHours();
       return hour >= 8 && hour < 24;
     };
 
     const statusDocRef = doc(db, 'products', 'store_status');
     const unsubscribe = onSnapshot(statusDocRef, (snap) => {
       if (snap.exists() && typeof snap.data().isOpen === 'boolean') {
-        setIsOpen(snap.data().isOpen);
+        const data = snap.data();
+        const nowPht = getPht();
+        const currentHour = nowPht.getHours();
+        const todayDateStr = `${nowPht.getFullYear()}-${String(nowPht.getMonth() + 1).padStart(2, '0')}-${String(nowPht.getDate()).padStart(2, '0')}`;
+
+        let shouldBeOpen = data.isOpen;
+        if (!data.isOpen && data.updatedAt && currentHour >= 8 && currentHour < 24) {
+          const lastUpdated = new Date(data.updatedAt);
+          const lastUpdatedPht = new Date(lastUpdated.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+          const lastUpdatedDateStr = `${lastUpdatedPht.getFullYear()}-${String(lastUpdatedPht.getMonth() + 1).padStart(2, '0')}-${String(lastUpdatedPht.getDate()).padStart(2, '0')}`;
+          if (lastUpdatedDateStr !== todayDateStr || lastUpdatedPht.getHours() < 8) {
+            // New day has started! Store reopens at 8 AM
+            shouldBeOpen = true;
+            fetch('/api/cron/store-hours').catch(() => {});
+          }
+        } else if (data.isOpen && currentHour < 8) {
+          // Store is closed past midnight
+          shouldBeOpen = false;
+          fetch('/api/cron/store-hours').catch(() => {});
+        }
+        setIsOpen(shouldBeOpen);
       } else {
         setIsOpen(checkSchedule());
       }

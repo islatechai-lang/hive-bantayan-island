@@ -38,18 +38,39 @@ export default function MenuPage() {
     }
   }, [user, authLoading, router]);
 
-  // Real-time store open/closed status from Firestore with automatic schedule fallback
+  // Real-time store open/closed status from Firestore with automatic schedule reconciliation
   useEffect(() => {
+    const getPht = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
     const checkSchedule = () => {
-      const now = new Date();
-      const hour = now.getHours();
+      const nowPht = getPht();
+      const hour = nowPht.getHours();
       return hour >= 8 && hour < 24;
     };
 
     const statusDocRef = doc(db, 'products', 'store_status');
     const unsubscribe = onSnapshot(statusDocRef, (snap) => {
       if (snap.exists() && typeof snap.data().isOpen === 'boolean') {
-        setIsOpen(snap.data().isOpen);
+        const data = snap.data();
+        const nowPht = getPht();
+        const currentHour = nowPht.getHours();
+        const todayDateStr = `${nowPht.getFullYear()}-${String(nowPht.getMonth() + 1).padStart(2, '0')}-${String(nowPht.getDate()).padStart(2, '0')}`;
+
+        let shouldBeOpen = data.isOpen;
+        if (!data.isOpen && data.updatedAt && currentHour >= 8 && currentHour < 24) {
+          const lastUpdated = new Date(data.updatedAt);
+          const lastUpdatedPht = new Date(lastUpdated.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+          const lastUpdatedDateStr = `${lastUpdatedPht.getFullYear()}-${String(lastUpdatedPht.getMonth() + 1).padStart(2, '0')}-${String(lastUpdatedPht.getDate()).padStart(2, '0')}`;
+          if (lastUpdatedDateStr !== todayDateStr || lastUpdatedPht.getHours() < 8) {
+            // New business day! Trigger auto reopen
+            shouldBeOpen = true;
+            fetch('/api/cron/store-hours').catch(() => {});
+          }
+        } else if (data.isOpen && currentHour < 8) {
+          // Midnight passed! Trigger auto close
+          shouldBeOpen = false;
+          fetch('/api/cron/store-hours').catch(() => {});
+        }
+        setIsOpen(shouldBeOpen);
       } else {
         setIsOpen(checkSchedule());
       }
@@ -58,12 +79,8 @@ export default function MenuPage() {
       setIsOpen(checkSchedule());
     });
 
-    // Check automated cron broadcast at 8 AM / 12 AM
-    const now = new Date();
-    const hour = now.getHours();
-    if (hour === 8 || hour === 0) {
-      fetch('/api/cron/store-hours').catch(() => {});
-    }
+    // Run store hours check on load
+    fetch('/api/cron/store-hours').catch(() => {});
 
     return () => unsubscribe();
   }, []);

@@ -41,80 +41,126 @@ async function handleStoreHoursCron(request) {
   try {
     const { searchParams } = new URL(request.url);
     const forcedAction = searchParams.get('action'); // 'open' | 'close' | null
+    const forceBroadcast = searchParams.get('forceBroadcast') === 'true';
 
     // Get current Philippine Time (PHT: UTC+8)
     const nowPht = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
     const currentHour = nowPht.getHours();
-    const todayDateStr = nowPht.toISOString().split('T')[0]; // YYYY-MM-DD
-
-    let actionToRun = forcedAction;
-    if (!actionToRun) {
-      if (currentHour >= 8 && currentHour < 12) {
-        actionToRun = 'open';
-      } else if (currentHour === 0 || currentHour >= 23) {
-        actionToRun = 'close';
-      } else {
-        return NextResponse.json({
-          message: `Current PHT hour is ${currentHour}:00. No scheduled open/close transition required.`,
-          phtTime: nowPht.toLocaleString('en-US', { timeZone: 'Asia/Manila' })
-        });
-      }
-    }
+    const todayDateStr = `${nowPht.getFullYear()}-${String(nowPht.getMonth() + 1).padStart(2, '0')}-${String(nowPht.getDate()).padStart(2, '0')}`;
 
     const adminDb = getAdminDb();
-    if (adminDb && !forcedAction) {
-      const settingsRef = adminDb.collection('settings').doc('storeStatus');
-      const docSnap = await settingsRef.get();
-      const settingsData = docSnap.exists ? docSnap.data() : {};
+    if (!adminDb) {
+      return NextResponse.json({ error: 'Database configuration missing' }, { status: 500 });
+    }
 
-      if (actionToRun === 'open' && settingsData.lastBroadcastOpenDate === todayDateStr) {
-        return NextResponse.json({
-          message: `Store OPEN broadcast already sent for today (${todayDateStr})`,
-          alreadySent: true
-        });
+    // Reference to products/store_status (the source of truth for cart and admin)
+    const storeStatusRef = adminDb.collection('products').doc('store_status');
+    const storeStatusSnap = await storeStatusRef.get();
+    const storeStatusData = storeStatusSnap.exists ? storeStatusSnap.data() : { isOpen: true };
+
+    // Reference to settings/storeStatus (tracking broadcast dates to avoid duplicate spam)
+    const broadcastSettingsRef = adminDb.collection('settings').doc('storeStatus');
+    const broadcastSettingsSnap = await broadcastSettingsRef.get();
+    const broadcastData = broadcastSettingsSnap.exists ? broadcastSettingsSnap.data() : {};
+
+    let actionToRun = forcedAction;
+
+    if (!actionToRun) {
+      // Automatic reconciliation based on schedule (8:00 AM to 12:00 AM PHT)
+      if (currentHour >= 8 && currentHour < 24) {
+        // Scheduled: OPEN
+        // If currently marked closed in Firestore, check if that close was from yesterday/prior to today's 8 AM
+        if (!storeStatusData.isOpen) {
+          const lastUpdated = storeStatusData.updatedAt ? new Date(storeStatusData.updatedAt) : null;
+          let isFromPriorDayOrMorning = true;
+          if (lastUpdated) {
+            const lastUpdatedPht = new Date(lastUpdated.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+            const lastUpdatedDateStr = `${lastUpdatedPht.getFullYear()}-${String(lastUpdatedPht.getMonth() + 1).padStart(2, '0')}-${String(lastUpdatedPht.getDate()).padStart(2, '0')}`;
+            // If updated today but before 8:00 AM, or updated on a previous date:
+            if (lastUpdatedDateStr === todayDateStr && lastUpdatedPht.getHours() >= 8) {
+              isFromPriorDayOrMorning = false;
+            }
+          }
+
+          if (isFromPriorDayOrMorning) {
+            actionToRun = 'open';
+          }
+        }
+      } else {
+        // Scheduled: CLOSED (between 12:00 AM midnight and 7:59 AM)
+        if (storeStatusData.isOpen) {
+          actionToRun = 'close';
+        }
       }
+    }
 
-      if (actionToRun === 'close' && settingsData.lastBroadcastCloseDate === todayDateStr) {
-        return NextResponse.json({
-          message: `Store CLOSED broadcast already sent for today (${todayDateStr})`,
-          alreadySent: true
-        });
-      }
+    if (!actionToRun) {
+      return NextResponse.json({
+        message: `Store status is already up to date for PHT hour ${currentHour}:00 (isOpen: ${storeStatusData.isOpen}).`,
+        phtTime: nowPht.toLocaleString('en-US', { timeZone: 'Asia/Manila' }),
+        isOpen: storeStatusData.isOpen
+      });
+    }
 
-      // Update last broadcast date in Firestore
+    const nextIsOpen = actionToRun === 'open';
+
+    // 1. ALWAYS update products/store_status in Firestore
+    await storeStatusRef.set({
+      isOpen: nextIsOpen,
+      lastAction: actionToRun,
+      updatedAt: nowPht.toISOString()
+    }, { merge: true });
+
+    console.log(`🕒 Store Status synced to [${nextIsOpen ? 'OPEN' : 'CLOSED'}] via cron/reconcile.`);
+
+    // 2. Check if broadcast push notification was already sent today for this action
+    let pushResult = null;
+    let pushSent = false;
+
+    const alreadySentToday = actionToRun === 'open' 
+      ? broadcastData.lastBroadcastOpenDate === todayDateStr
+      : broadcastData.lastBroadcastCloseDate === todayDateStr;
+
+    if (!alreadySentToday || forceBroadcast) {
+      let heading = '';
+      let content = '';
+
       if (actionToRun === 'open') {
-        await settingsRef.set({ lastBroadcastOpenDate: todayDateStr, isOpen: true }, { merge: true });
-      } else if (actionToRun === 'close') {
-        await settingsRef.set({ lastBroadcastCloseDate: todayDateStr, isOpen: false }, { merge: true });
+        heading = 'We are OPEN! 🛵🍰';
+        content = 'Bantayan Hive is now open and accepting orders! Treat yourself to delicious Tiramisu & Milkshakes.';
+      } else {
+        heading = 'Store Closed 🌙';
+        content = 'Bantayan Hive is now closed for the day. We re-open tomorrow at 8:00 AM!';
       }
-    }
 
-    let heading = '';
-    let content = '';
+      pushResult = await sendPushNotification({
+        heading,
+        content,
+        sendToAll: true,
+        url: 'https://hive-bantayan-island.vercel.app',
+      });
 
-    if (actionToRun === 'open') {
-      heading = 'We are OPEN! 🛵🍰';
-      content = 'Bantayan Hive is now open and accepting orders! Treat yourself to delicious Tiramisu & Milkshakes.';
+      pushSent = true;
+      console.log(`📢 Push Notification sent [${actionToRun.toUpperCase()}]:`, pushResult);
+
+      // Record broadcast date
+      if (actionToRun === 'open') {
+        await broadcastSettingsRef.set({ lastBroadcastOpenDate: todayDateStr, isOpen: true }, { merge: true });
+      } else {
+        await broadcastSettingsRef.set({ lastBroadcastCloseDate: todayDateStr, isOpen: false }, { merge: true });
+      }
     } else {
-      heading = 'Store Closed 🌙';
-      content = 'Bantayan Hive is now closed for the day. We re-open tomorrow at 8:00 AM!';
+      console.log(`ℹ️ [Store Hours] Push alert for [${actionToRun.toUpperCase()}] already sent for ${todayDateStr}.`);
     }
-
-    const pushResult = await sendPushNotification({
-      heading,
-      content,
-      sendToAll: true,
-      url: 'https://hive-bantayan-island.vercel.app',
-    });
-
-    console.log(`⏰ Automated Cron Broadcast [${actionToRun.toUpperCase()}]:`, pushResult);
 
     return NextResponse.json({
       success: true,
       action: actionToRun,
+      isOpen: nextIsOpen,
       todayDateStr,
       phtTime: nowPht.toLocaleString('en-US', { timeZone: 'Asia/Manila' }),
-      pushResult,
+      pushSent,
+      pushResult
     });
   } catch (error) {
     console.error('Store hours cron error:', error);

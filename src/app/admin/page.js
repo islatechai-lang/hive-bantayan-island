@@ -34,6 +34,8 @@ export default function AdminPage() {
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
   const [storeIsOpen, setStoreIsOpen] = useState(true);
   const [viewingReceiptUrl, setViewingReceiptUrl] = useState(null);
+  const [orderToDelete, setOrderToDelete] = useState(null);
+  const [deletingOrder, setDeletingOrder] = useState(false);
 
   const initialLoadRef = useRef(true);
   const assignRef = useRef(null);
@@ -56,16 +58,38 @@ export default function AdminPage() {
     };
   }, [assigningOrderId]);
 
-  // Real-time store status listener in admin
+  // Real-time store status listener in admin with automatic schedule reconciliation
   useEffect(() => {
     if (!isAuthenticated) return;
     const unsub = onSnapshot(doc(db, 'products', 'store_status'), (snap) => {
       if (snap.exists() && typeof snap.data().isOpen === 'boolean') {
-        setStoreIsOpen(snap.data().isOpen);
+        const data = snap.data();
+        const nowPht = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+        const currentHour = nowPht.getHours();
+        const todayDateStr = `${nowPht.getFullYear()}-${String(nowPht.getMonth() + 1).padStart(2, '0')}-${String(nowPht.getDate()).padStart(2, '0')}`;
+
+        let shouldBeOpen = data.isOpen;
+        if (!data.isOpen && data.updatedAt && currentHour >= 8 && currentHour < 24) {
+          const lastUpdated = new Date(data.updatedAt);
+          const lastUpdatedPht = new Date(lastUpdated.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+          const lastUpdatedDateStr = `${lastUpdatedPht.getFullYear()}-${String(lastUpdatedPht.getMonth() + 1).padStart(2, '0')}-${String(lastUpdatedPht.getDate()).padStart(2, '0')}`;
+          if (lastUpdatedDateStr !== todayDateStr || lastUpdatedPht.getHours() < 8) {
+            shouldBeOpen = true;
+            fetch('/api/cron/store-hours').catch(() => {});
+          }
+        } else if (data.isOpen && currentHour < 8) {
+          shouldBeOpen = false;
+          fetch('/api/cron/store-hours').catch(() => {});
+        }
+        setStoreIsOpen(shouldBeOpen);
       }
     }, (err) => {
       console.warn('Admin storeStatus subscription warning:', err);
     });
+
+    // Check store schedule status on load
+    fetch('/api/cron/store-hours').catch(() => {});
+
     return () => unsub();
   }, [isAuthenticated]);
 
@@ -348,6 +372,40 @@ export default function AdminPage() {
       showToast('Failed to update status: ' + error.message, 'error');
     } finally {
       setUpdatingStatusId(null);
+    }
+  };
+
+  const handleConfirmDeleteOrder = async () => {
+    if (!orderToDelete) return;
+    setDeletingOrder(true);
+    const idToDelete = orderToDelete.id;
+    try {
+      // 1. Call DELETE API route (uses adminDb)
+      const res = await fetch(`/api/orders/${idToDelete}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to delete order');
+      }
+
+      // 2. Remove locally from state for immediate UI feedback
+      setOrders(prev => prev.filter(o => o.id !== idToDelete));
+      showToast(`Order #${idToDelete.slice(-6).toUpperCase()} removed from list!`, 'success');
+      setOrderToDelete(null);
+    } catch (err) {
+      console.error('Error deleting order:', err);
+      // Fallback: Try direct client deleteDoc if API had an issue
+      try {
+        await deleteDoc(doc(db, 'orders', idToDelete));
+        setOrders(prev => prev.filter(o => o.id !== idToDelete));
+        showToast(`Order #${idToDelete.slice(-6).toUpperCase()} removed!`, 'success');
+        setOrderToDelete(null);
+      } catch (clientErr) {
+        showToast('Error removing order: ' + err.message, 'error');
+      }
+    } finally {
+      setDeletingOrder(false);
     }
   };
 
@@ -853,6 +911,31 @@ export default function AdminPage() {
                       🛵 Route Navigation
                     </Link>
                   </div>
+
+                  {(order.status === 'delivered' || order.status === 'cancelled') && (
+                    <div style={{ marginTop: '8px' }}>
+                      <button
+                        onClick={() => setOrderToDelete(order)}
+                        className="btn btn-sm"
+                        style={{
+                          width: '100%',
+                          background: '#fff5f5',
+                          color: '#c53030',
+                          border: '1px solid #feb2b2',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          fontWeight: 600,
+                          fontSize: '12px',
+                          borderRadius: '8px',
+                          padding: '7px 10px'
+                        }}
+                      >
+                        <Trash2 size={13} /> Delete / Remove Order
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1416,6 +1499,89 @@ export default function AdminPage() {
                 alt="Customer GCash Receipt Full Resolution"
                 style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', display: 'block', borderRadius: '6px' }}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Order Confirmation Modal */}
+      {orderToDelete && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '1rem',
+            backdropFilter: 'blur(3px)'
+          }}
+          onClick={() => !deletingOrder && setOrderToDelete(null)}
+        >
+          <div 
+            style={{
+              background: 'var(--card-bg, #ffffff)',
+              borderRadius: '16px',
+              maxWidth: '420px',
+              width: '100%',
+              padding: '1.5rem',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+              border: '1px solid var(--divider)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#fff0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c0392b', flexShrink: 0 }}>
+                <Trash2 size={20} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>Remove Order?</h3>
+                <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  Order #{orderToDelete.id.slice(-6).toUpperCase()} ({orderToDelete.status.toUpperCase()})
+                </p>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '1.25rem' }}>
+              Are you sure you want to permanently delete this order from the system? This action will remove the record completely to keep your orders board clean and organized.
+            </p>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setOrderToDelete(null)}
+                disabled={deletingOrder}
+                className="btn btn-ghost"
+                style={{ flex: 1, padding: '10px' }}
+              >
+                Keep Order
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteOrder}
+                disabled={deletingOrder}
+                className="btn"
+                style={{
+                  flex: 1,
+                  background: '#c0392b',
+                  color: '#fff',
+                  border: 'none',
+                  fontWeight: 600,
+                  padding: '10px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                {deletingOrder ? 'Removing...' : 'Delete Order'}
+              </button>
             </div>
           </div>
         </div>

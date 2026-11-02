@@ -41,8 +41,10 @@ service cloud.firestore {
         true
       );
       
-      // Clients cannot delete orders
-      allow delete: if false;
+      // Allow authenticated admin users to delete delivered or cancelled orders to keep the board clean
+      allow delete: if isAuthenticated() && (
+        resource.data.status == 'delivered' || resource.data.status == 'cancelled'
+      );
     }
 
     // 4. Riders collection rules (delivery assignment system)
