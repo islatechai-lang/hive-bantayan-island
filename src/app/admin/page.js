@@ -36,7 +36,6 @@ export default function AdminPage() {
   const [viewingReceiptUrl, setViewingReceiptUrl] = useState(null);
   const [orderToDelete, setOrderToDelete] = useState(null);
   const [deletingOrder, setDeletingOrder] = useState(false);
-  const [cleaningUsers, setCleaningUsers] = useState(false);
 
   const initialLoadRef = useRef(true);
   const assignRef = useRef(null);
@@ -386,20 +385,6 @@ export default function AdminPage() {
       }
     } finally {
       setDeletingOrder(false);
-    }
-  };
-
-  const handleCleanGhostUsers = async () => {
-    setCleaningUsers(true);
-    try {
-      const res = await fetch('/api/admin/clean-ghost-users', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Clean users failed');
-      showToast(`Cleaned up ${data.cleanedCount || 0} ghost user record(s)!`, 'success');
-    } catch (err) {
-      showToast('Error cleaning users: ' + err.message, 'error');
-    } finally {
-      setCleaningUsers(false);
     }
   };
 
@@ -946,33 +931,16 @@ export default function AdminPage() {
               <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent)', margin: 0 }}>
                 📢 Broadcast &amp; Store Status Controls
               </h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  onClick={handleCleanGhostUsers}
-                  disabled={cleaningUsers}
-                  className="btn btn-sm btn-ghost"
-                  title="Remove anonymous ghost records from the users collection"
-                  style={{ 
-                    fontSize: '11px', 
-                    padding: '4px 10px', 
-                    border: '1px solid var(--divider)', 
-                    borderRadius: '16px',
-                    color: 'var(--text-secondary)'
-                  }}
-                >
-                  🧹 {cleaningUsers ? 'Cleaning...' : 'Clean Ghost Records'}
-                </button>
-                <div style={{ 
-                  fontSize: '11px', 
-                  fontWeight: 700, 
-                  padding: '4px 10px', 
-                  borderRadius: '16px', 
-                  background: storeIsOpen ? '#dcfce7' : '#fee2e2', 
-                  color: storeIsOpen ? '#15803d' : '#b91c1c',
-                  border: `1px solid ${storeIsOpen ? '#86efac' : '#fca5a5'}`
-                }}>
-                  Live Store Status: {storeIsOpen ? '🟢 OPEN' : '🔴 CLOSED'}
-                </div>
+              <div style={{ 
+                fontSize: '11px', 
+                fontWeight: 700, 
+                padding: '4px 10px', 
+                borderRadius: '16px', 
+                background: storeIsOpen ? '#dcfce7' : '#fee2e2', 
+                color: storeIsOpen ? '#15803d' : '#b91c1c',
+                border: `1px solid ${storeIsOpen ? '#86efac' : '#fca5a5'}`
+              }}>
+                Live Store Status: {storeIsOpen ? '🟢 OPEN' : '🔴 CLOSED'}
               </div>
             </div>
             <p className="text-xs text-secondary mb-md">
