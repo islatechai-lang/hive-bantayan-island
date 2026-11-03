@@ -169,6 +169,8 @@ export default function MenuPage() {
   if (!user) return null;
 
   const filteredProducts = products.filter(p => p.category === category);
+  const cakeCount = products.filter(p => p.category === 'cake').length;
+  const comingSoonCount = products.filter(p => p.category === 'milkshake').length;
   const cartCount = getCartCount();
   const cartTotal = getTotal();
 
@@ -230,14 +232,18 @@ export default function MenuPage() {
         <button 
           onClick={() => setCategory('cake')}
           className={`category-tab ${category === 'cake' ? 'active' : ''}`}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
-          Tiramisu Cakes
+          <span>Tiramisu Cakes</span>
+          {cakeCount > 0 && <span className="tab-count-badge">{cakeCount}</span>}
         </button>
         <button 
           onClick={() => setCategory('milkshake')}
           className={`category-tab ${category === 'milkshake' ? 'active' : ''}`}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
-          Coming Soon 🥤
+          <span>Coming Soon 🥤</span>
+          {comingSoonCount > 0 && <span className="tab-count-badge">{comingSoonCount}</span>}
         </button>
       </div>
 

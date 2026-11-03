@@ -707,11 +707,35 @@ ul, ol {
   transform: scale(0.95);
 }
 
+.sold-out-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #ffffff;
+  font-size: 0.95rem;
+  letter-spacing: 1px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+}
+
 .coming-soon-want-btn.wanted {
   background: #fef2f2;
   border-color: #f87171;
   color: #ef4444;
   box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
+}
+
+[data-theme="dark"] .coming-soon-want-btn.wanted,
+[data-theme="dark"] .btn-wanted-active {
+  background: rgba(239, 68, 68, 0.16) !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  color: #f87171 !important;
 }
 
 .coming-soon-want-btn .want-count {
@@ -2072,7 +2096,7 @@ ul, ol {
   width: 48px;
   height: 48px;
   border-radius: var(--radius-full);
-  background: #fdf2f4;
+  background: var(--card-bg-accent, #fdf2f4);
   color: var(--accent);
   display: flex;
   align-items: center;
@@ -2465,6 +2489,7 @@ ul, ol {
   overflow-y: auto;
   position: relative;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
   animation: modal-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -2491,6 +2516,12 @@ ul, ol {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   color: #333;
   transition: transform 0.15s ease;
+}
+
+[data-theme="dark"] .product-modal-close {
+  background: rgba(39, 32, 39, 0.88);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
 }
 
 .product-modal-close:active {

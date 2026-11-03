@@ -172,7 +172,7 @@ export default function ProductCard({ product }) {
             priority={product.sortOrder <= 4}
           />
           {isSoldOut && (
-            <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'var(--error)', fontSize: '0.9rem', letterSpacing: '0.5px' }}>
+            <div className="sold-out-overlay">
               SOLD OUT
             </div>
           )}
@@ -249,7 +249,7 @@ export default function ProductCard({ product }) {
                 priority
               />
               {isSoldOut && (
-                <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'var(--error)', fontSize: '1.1rem' }}>
+                <div className="sold-out-overlay" style={{ fontSize: '1.1rem' }}>
                   SOLD OUT
                 </div>
               )}
@@ -263,11 +263,11 @@ export default function ProductCard({ product }) {
                 </div>
                 <div style={{ marginTop: '4px' }}>
                   {isComingSoon ? (
-                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent)', background: 'rgba(196, 98, 45, 0.08)', padding: '2px 8px', borderRadius: '8px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent)', background: 'var(--card-bg-accent)', padding: '2px 8px', borderRadius: '8px' }}>
                       Coming Soon
                     </span>
                   ) : isSoldOut ? (
-                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--error)', background: '#fdecec', padding: '2px 8px', borderRadius: '10px' }}>Out of Stock</span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--error)', background: 'var(--error-bg)', padding: '2px 8px', borderRadius: '10px' }}>Out of Stock</span>
                   ) : product.stock !== undefined ? (
                     <span style={{ fontSize: '12px', fontWeight: 600, color: product.stock <= 5 ? 'var(--error)' : 'var(--accent)', background: 'var(--card-bg-accent)', padding: '2px 8px', borderRadius: '10px' }}>
                       {product.stock <= 5 ? `Only ${product.stock} items left!` : `${product.stock} in stock`}

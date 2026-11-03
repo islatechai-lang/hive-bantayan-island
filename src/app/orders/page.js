@@ -232,14 +232,14 @@ export default function OrdersPage() {
 
                     {/* Rider assignment notice */}
                     {order.assignedRiderName && (
-                      <div style={{ background: '#e8f7ef', padding: '8px 12px', borderRadius: '8px', color: '#15803d', fontSize: '12px', fontWeight: 600 }}>
-                        🛵 Rider assigned: {order.assignedRiderName}
+                      <div style={{ background: 'var(--success-bg)', padding: '8px 12px', borderRadius: '8px', color: 'var(--success)', border: '1px solid rgba(16, 185, 129, 0.25)', fontSize: '12px', fontWeight: 600 }}>
+                        🛵 Rider assigned: <strong>{order.assignedRiderName}</strong>
                       </div>
                     )}
 
                     {/* Cancelled notice */}
                     {order.status === 'cancelled' && (
-                      <div style={{ background: '#fdecec', padding: '8px 12px', borderRadius: '8px', color: '#c0392b', fontSize: '12px' }}>
+                      <div style={{ background: 'var(--error-bg)', padding: '8px 12px', borderRadius: '8px', color: 'var(--error)', border: '1px solid rgba(239, 68, 68, 0.25)', fontSize: '12px' }}>
                         <strong>Order was cancelled {order.cancelledBy === 'customer' ? 'by you' : 'by store'}</strong>
                         {order.cancelReason && (
                           <div style={{ marginTop: '2px', opacity: 0.9 }}>Reason: "{order.cancelReason}"</div>
@@ -249,7 +249,7 @@ export default function OrdersPage() {
 
                     {/* Cancellation eligibility note */}
                     {cancellable && (
-                      <div style={{ background: '#fbfbfb', border: '1px dashed var(--border)', padding: '10px 12px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginTop: '4px' }}>
+                      <div style={{ background: 'var(--bg-tertiary)', border: '1px dashed var(--border)', padding: '10px 12px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginTop: '4px' }}>
                         <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
                           Need to change items or address? You can cancel before a rider is dispatched.
                         </span>
@@ -258,9 +258,9 @@ export default function OrdersPage() {
                           onClick={(e) => handleOpenCancelModal(e, order)}
                           className="btn btn-sm"
                           style={{
-                            background: '#fff0f0',
-                            color: '#c0392b',
-                            border: '1px solid #f8c0c0',
+                            background: 'var(--error-bg)',
+                            color: 'var(--error)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
                             borderRadius: '20px',
                             padding: '6px 14px',
                             fontSize: '12px',
@@ -290,9 +290,9 @@ export default function OrdersPage() {
                       onClick={(e) => handleOpenCancelModal(e, order)}
                       className="btn btn-sm"
                       style={{
-                        background: '#fff0f0',
-                        color: '#c0392b',
-                        border: '1px solid #f8c0c0',
+                        background: 'var(--error-bg)',
+                        color: 'var(--error)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
                         borderRadius: '20px',
                         padding: '6px 12px',
                         fontSize: '12px',
@@ -334,8 +334,8 @@ export default function OrdersPage() {
                 width: '48px', 
                 height: '48px', 
                 borderRadius: '50%', 
-                background: '#fee2e2', 
-                color: '#dc2626', 
+                background: 'var(--error-bg)', 
+                color: 'var(--error)', 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center',
@@ -416,10 +416,10 @@ export default function OrdersPage() {
                   padding: '12px',
                   fontSize: '0.92rem',
                   fontWeight: 700,
-                  background: '#dc2626',
+                  background: '#ef4444',
                   color: '#fff',
                   border: 'none',
-                  boxShadow: '0 4px 12px rgba(220, 38, 38, 0.25)'
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)'
                 }}
               >
                 {isSubmittingCancel ? 'Cancelling...' : 'Yes, Cancel'}

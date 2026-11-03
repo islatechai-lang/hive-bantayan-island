@@ -2,16 +2,18 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
 import { useToast } from '../../contexts/ToastContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import PolicyModal from '../../components/PolicyModal';
-import { Phone, UserCircle } from 'lucide-react';
+import { Phone, UserCircle, Sun, Moon } from 'lucide-react';
 import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
 export default function LoginPage() {
   const { user, sendOTP, verifyOTP, updateUserName, loading, cleanupRecaptcha } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
   const { showToast } = useToast();
   const router = useRouter();
   
@@ -221,7 +223,27 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="auth-page">
+    <div className="auth-page" style={{ position: 'relative' }}>
+      <div style={{ position: 'absolute', top: '16px', right: '16px' }}>
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="btn btn-secondary btn-sm"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            borderRadius: '20px',
+            border: '1px solid var(--border)',
+            cursor: 'pointer'
+          }}
+          title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+        >
+          {isDark ? <Sun size={14} color="#FBBF24" /> : <Moon size={14} color="var(--accent)" />}
+          <span style={{ fontSize: '12px', fontWeight: 600 }}>{isDark ? 'Light' : 'Dark'}</span>
+        </button>
+      </div>
       <div className="auth-logo" style={{ margin: '0 auto 1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <img src="/logo.png" alt="Bantayan Hive Logo" style={{ width: '5.5rem', height: '5.5rem', objectFit: 'contain' }} />
       </div>
