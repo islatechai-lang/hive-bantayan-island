@@ -41,7 +41,15 @@ export function AuthProvider({ children }) {
           console.warn('OneSignal registration error:', oneSignalErr);
         }
 
-        // Fetch or create user doc in Firestore
+        // Real customers always authenticate via Phone SMS OTP.
+        // Anonymous accounts are internal portal logins (admin / rider).
+        // Never create or pollute the 'users' collection with anonymous accounts.
+        if (firebaseUser.isAnonymous || !firebaseUser.phoneNumber) {
+          setLoading(false);
+          return;
+        }
+
+        // Fetch or create user doc in Firestore for real customers
         try {
           const userRef = doc(db, 'users', firebaseUser.uid);
           const docSnap = await getDoc(userRef);
@@ -54,11 +62,11 @@ export function AuthProvider({ children }) {
               setLiveLocation(data.liveLocation);
             }
           } else {
-            // Initialize user doc
+            // Initialize customer doc with their verified mobile phone number
             const newUserData = {
               uid: firebaseUser.uid,
               phone: firebaseUser.phoneNumber,
-              name: firebaseUser.displayName || 'Sweet Tooth Customer',
+              name: firebaseUser.displayName || 'Customer',
               createdAt: new Date().toISOString(),
               address: '',
               location: null,
@@ -127,7 +135,7 @@ export function AuthProvider({ children }) {
           if (now - lastFirestoreUpdateRef.current >= LOCATION_UPDATE_INTERVAL) {
             lastFirestoreUpdateRef.current = now;
             try {
-              if (auth.currentUser) {
+              if (auth.currentUser && !auth.currentUser.isAnonymous && auth.currentUser.phoneNumber) {
                 const userRef = doc(db, 'users', auth.currentUser.uid);
                 await setDoc(userRef, { liveLocation: loc }, { merge: true });
               }
@@ -374,7 +382,7 @@ export function AuthProvider({ children }) {
 
   // Force an immediate location update to Firestore (used before placing an order)
   const forceLocationSync = useCallback(async () => {
-    if (!auth.currentUser || !liveLocation) return liveLocation;
+    if (!auth.currentUser || auth.currentUser.isAnonymous || !auth.currentUser.phoneNumber || !liveLocation) return liveLocation;
 
     try {
       const freshLoc = { ...liveLocation, updatedAt: new Date().toISOString() };
