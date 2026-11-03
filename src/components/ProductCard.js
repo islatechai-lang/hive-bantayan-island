@@ -165,8 +165,6 @@ export default function ProductCard({ product }) {
             style={
               product.imagePosition
                 ? { objectPosition: product.imagePosition }
-                : (product.id === 'classic-tiramisu' || product.id === 'oreo-tiramisu')
-                ? { objectPosition: 'center 30%' }
                 : undefined
             }
             priority={product.sortOrder <= 4}
@@ -244,7 +242,7 @@ export default function ProductCard({ product }) {
                 sizes="(max-width: 480px) 100vw, 420px"
                 style={{
                   objectFit: 'cover',
-                  objectPosition: product.previewPosition || product.imagePosition || ((product.id === 'classic-tiramisu' || product.id === 'oreo-tiramisu') ? 'center 30%' : 'center')
+                  objectPosition: product.previewPosition || product.imagePosition || 'center 52%'
                 }}
                 priority
               />
