@@ -92,7 +92,7 @@ export default function DeliveryDetailPage() {
         <button 
           onClick={() => router.push('/admin')} 
           className="btn btn-secondary btn-sm"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.5rem 0.8rem', background: '#f5f5f5', border: 'none', borderRadius: '20px' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.5rem 0.8rem', borderRadius: '20px' }}
         >
           <ChevronLeft size={16} /> Dashboard
         </button>

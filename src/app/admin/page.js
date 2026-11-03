@@ -5,15 +5,17 @@ import { auth, db } from '../../lib/firebase';
 import { signInAnonymously, onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { useToast } from '../../contexts/ToastContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import StatusBadge from '../../components/StatusBadge';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Link from 'next/link';
-import { Truck, Smartphone, Users, ChevronDown, Lightbulb, Heart, Trash2 } from 'lucide-react';
+import { Truck, Smartphone, Users, ChevronDown, Lightbulb, Heart, Trash2, Sun, Moon, Volume2, VolumeX } from 'lucide-react';
 
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || '1234';
 
 export default function AdminPage() {
   const { showToast } = useToast();
+  const { theme, isDark, toggleTheme } = useTheme();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
   const [password, setPassword] = useState('');
@@ -475,10 +477,29 @@ export default function AdminPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="auth-page">
+      <div className="auth-page" style={{ position: 'relative' }}>
+        <div style={{ position: 'absolute', top: '16px', right: '16px' }}>
+          <button
+            onClick={toggleTheme}
+            className="btn btn-secondary btn-sm"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              border: '1px solid var(--border)',
+              cursor: 'pointer'
+            }}
+            title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+          >
+            {isDark ? <Sun size={14} color="#FBBF24" /> : <Moon size={14} color="var(--accent)" />}
+            <span style={{ fontSize: '12px', fontWeight: 600 }}>{isDark ? 'Light' : 'Dark'}</span>
+          </button>
+        </div>
         <h1 className="auth-brand">Bantayan Hive Admin Panel</h1>
         <p className="auth-tagline text-secondary text-sm">Please enter passkey to continue</p>
-        <div className="auth-card">
+        <div className="auth-card" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
           <form onSubmit={handleLogin}>
             <div className="input-group">
               <label className="input-label">Admin Password</label>
@@ -491,6 +512,7 @@ export default function AdminPage() {
                 required
                 autoFocus
                 disabled={loggingIn}
+                style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
               />
             </div>
             <button type="submit" className="btn btn-primary btn-block btn-pill mt-md" disabled={loggingIn}>
@@ -502,7 +524,13 @@ export default function AdminPage() {
     );
   }
 
-  // Filter orders by status
+  // Filter orders and compute status category counts
+  const pendingOrders = orders.filter(o => o.status === 'pending');
+  const preparingOrders = orders.filter(o => o.status === 'preparing');
+  const outOrders = orders.filter(o => o.status === 'out_for_delivery');
+  const deliveredOrders = orders.filter(o => o.status === 'delivered');
+  const cancelledOrders = orders.filter(o => o.status === 'cancelled');
+
   const filteredOrders = statusFilter === 'all' 
     ? orders 
     : orders.filter(o => o.status === statusFilter);
@@ -518,39 +546,84 @@ export default function AdminPage() {
 
   return (
     <div className="page-no-nav">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h1 className="page-title">Bantayan Hive Admin</h1>
-          <p className="page-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            Manage menu inventory and deliveries
-            {!audioEnabled && (
-              <span style={{ fontSize: '11px', background: 'var(--warning-bg)', color: 'var(--warning)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
-                🔊 Tap screen to enable audio alerts
-              </span>
-            )}
+          <h1 className="page-title" style={{ margin: 0 }}>Bantayan Hive Admin</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+            <span className="text-secondary text-xs">Menu, inventory &amp; real-time orders</span>
+            <button
+              onClick={() => {
+                if (!audioEnabled) {
+                  setAudioEnabled(true);
+                  showToast('Audio alerts enabled', 'success');
+                } else {
+                  setAudioEnabled(false);
+                  showToast('Audio alerts muted', 'info');
+                }
+              }}
+              style={{
+                fontSize: '11px',
+                background: audioEnabled ? 'rgba(34, 197, 94, 0.12)' : 'var(--warning-bg)',
+                color: audioEnabled ? '#10b981' : 'var(--warning)',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              title="Click to toggle order notification sound"
+            >
+              {audioEnabled ? <Volume2 size={12} /> : <VolumeX size={12} />}
+              {audioEnabled ? 'Audio Active' : 'Tap to Enable Audio'}
+            </button>
             {onlineRiders.length > 0 && (
-              <span style={{ fontSize: '11px', background: '#e8f7ef', color: '#246b38', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
-                🟢 {onlineRiders.length} rider{onlineRiders.length > 1 ? 's' : ''} online
+              <span style={{ fontSize: '11px', background: 'rgba(34, 197, 94, 0.12)', color: '#10b981', padding: '2px 8px', borderRadius: '12px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }}></span>
+                {onlineRiders.length} rider{onlineRiders.length > 1 ? 's' : ''} online
               </span>
             )}
-          </p>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Dark / Light Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="btn btn-secondary btn-sm"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              border: '1px solid var(--border)',
+              cursor: 'pointer'
+            }}
+            title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+          >
+            {isDark ? <Sun size={14} color="#FBBF24" /> : <Moon size={14} color="var(--accent)" />}
+            <span style={{ fontSize: '12px', fontWeight: 600 }}>{isDark ? 'Light' : 'Dark'}</span>
+          </button>
+
+          {/* Live Store Status Pill */}
           <div style={{ 
             fontSize: '12px', 
             fontWeight: 700, 
             padding: '6px 12px', 
             borderRadius: '20px', 
-            background: storeIsOpen ? '#dcfce7' : '#fee2e2', 
-            color: storeIsOpen ? '#15803d' : '#b91c1c',
-            border: `1px solid ${storeIsOpen ? '#86efac' : '#fca5a5'}`,
+            background: storeIsOpen ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)', 
+            color: storeIsOpen ? '#10b981' : '#ef4444',
+            border: `1px solid ${storeIsOpen ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
             display: 'inline-flex',
             alignItems: 'center',
             gap: '6px'
           }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: storeIsOpen ? '#22c55e' : '#ef4444' }}></span>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: storeIsOpen ? '#10b981' : '#ef4444' }}></span>
             <span>Store: {storeIsOpen ? 'OPEN' : 'CLOSED'}</span>
           </div>
+
           <button 
             onClick={handleLogout}
             className="btn btn-secondary btn-sm btn-pill"
@@ -560,99 +633,78 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Desktop Dashboard Overview Cards */}
-      <div className="admin-stats-grid">
-        <div className="admin-stat-card" style={{ borderLeft: '4px solid #f39c12' }}>
-          <div className="admin-stat-icon" style={{ background: '#fef5e7', color: '#f39c12' }}>⏳</div>
-          <div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#333' }}>
-              {orders.filter(o => o.status === 'pending').length}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#777', fontWeight: 600 }}>Pending Review</div>
-          </div>
-        </div>
-
-        <div className="admin-stat-card" style={{ borderLeft: '4px solid var(--accent)' }}>
-          <div className="admin-stat-icon" style={{ background: '#fde8ec', color: 'var(--accent)' }}>👩‍🍳</div>
-          <div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#333' }}>
-              {orders.filter(o => o.status === 'preparing').length}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#777', fontWeight: 600 }}>Preparing Orders</div>
-          </div>
-        </div>
-
-        <div className="admin-stat-card" style={{ borderLeft: '4px solid #27ae60' }}>
-          <div className="admin-stat-icon" style={{ background: '#e8f7ef', color: '#27ae60' }}>🛵</div>
-          <div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#333' }}>
-              {orders.filter(o => o.status === 'out_for_delivery').length}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#777', fontWeight: 600 }}>Out for Delivery</div>
-          </div>
-        </div>
-
-        <div className="admin-stat-card" style={{ borderLeft: '4px solid #3498db' }}>
-          <div className="admin-stat-icon" style={{ background: '#ebf5fb', color: '#3498db' }}>📱</div>
-          <div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#333' }}>
-              {onlineRiders.length} / {riders.length}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#777', fontWeight: 600 }}>Riders Online</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs */}
+      {/* Main Navigation Tabs with Count Badges */}
       <div className="category-tabs mb-lg">
         <button 
           onClick={() => setActiveTab('orders')}
           className={`category-tab ${activeTab === 'orders' ? 'active' : ''}`}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
-          Orders ({orders.length})
+          <span>Orders</span>
+          <span className="tab-count-badge">{orders.length}</span>
+          {pendingOrders.length > 0 && (
+            <span className="tab-alert-pill" title={`${pendingOrders.length} pending orders need review`}>
+              {pendingOrders.length} new
+            </span>
+          )}
         </button>
         <button 
           onClick={() => setActiveTab('products')}
           className={`category-tab ${activeTab === 'products' ? 'active' : ''}`}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
-          Inventory
+          <span>Inventory</span>
+          <span className="tab-count-badge">{products.length}</span>
         </button>
         <button 
           onClick={() => setActiveTab('delivery')}
           className={`category-tab ${activeTab === 'delivery' ? 'active' : ''}`}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
-          Deliveries ({activeDeliveries.length})
+          <span>Deliveries</span>
+          <span className="tab-count-badge">{activeDeliveries.length}</span>
         </button>
         <button 
           onClick={() => setActiveTab('riders')}
           className={`category-tab ${activeTab === 'riders' ? 'active' : ''}`}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-            <Smartphone size={14} /> Riders ({riders.length})
-          </span>
+          <Smartphone size={14} />
+          <span>Riders</span>
+          <span className="tab-count-badge">{onlineRiders.length}/{riders.length}</span>
         </button>
         <button 
           onClick={() => setActiveTab('suggestions')}
           className={`category-tab ${activeTab === 'suggestions' ? 'active' : ''}`}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-            <Lightbulb size={14} /> Suggestions ({suggestions.length})
-          </span>
+          <Lightbulb size={14} />
+          <span>Suggestions</span>
+          <span className="tab-count-badge">{suggestions.length}</span>
         </button>
       </div>
 
       {/* Tab Contents: Orders list */}
       {activeTab === 'orders' && (
         <div className="flex flex-col gap-md">
-          {/* Status Filters */}
+          {/* Status Filter Pills with Counts */}
           <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', WebkitOverflowScrolling: 'touch' }}>
-            {['pending', 'preparing', 'out_for_delivery', 'delivered', 'cancelled', 'all'].map(f => (
+            {[
+              { key: 'pending', label: 'Pending Review', count: pendingOrders.length, icon: '⏳', isAlert: pendingOrders.length > 0 },
+              { key: 'preparing', label: 'Preparing', count: preparingOrders.length, icon: '👩‍🍳' },
+              { key: 'out_for_delivery', label: 'Out for Delivery', count: outOrders.length, icon: '🛵' },
+              { key: 'delivered', label: 'Delivered', count: deliveredOrders.length, icon: '🍰' },
+              { key: 'cancelled', label: 'Cancelled', count: cancelledOrders.length, icon: '❌' },
+              { key: 'all', label: 'All Orders', count: orders.length, icon: '📋' },
+            ].map(f => (
               <button
-                key={f}
-                onClick={() => setStatusFilter(f)}
-                className={`filter-pill ${statusFilter === f ? 'active' : ''}`}
+                key={f.key}
+                onClick={() => setStatusFilter(f.key)}
+                className={`filter-pill ${statusFilter === f.key ? 'active' : ''} ${f.isAlert && statusFilter !== f.key ? 'filter-pill-alert' : ''}`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
-                {f === 'pending' ? '⏳ PENDING REVIEW' : f.replace('_', ' ').toUpperCase()}
+                <span>{f.icon} {f.label}</span>
+                <span className="filter-pill-count">{f.count}</span>
               </button>
             ))}
           </div>
@@ -674,14 +726,14 @@ export default function AdminPage() {
                     <StatusBadge status={order.status} />
                   </div>
 
-                  <div className="admin-order-items">
+                  <div className="admin-order-items" style={{ background: 'var(--bg-tertiary)', borderRadius: '10px', padding: '12px', marginBottom: '12px', border: '1px solid var(--border)' }}>
                     {order.items.map((item, idx) => (
                       <div key={idx} className="admin-order-item">
                         <span>{item.quantity}x {item.name}</span>
                         <span>₱{item.price * item.quantity}</span>
                       </div>
                     ))}
-                    <div style={{ borderTop: '1px solid var(--divider)', marginTop: '8px', paddingTop: '8px', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
+                    <div style={{ borderTop: '1px solid var(--border)', marginTop: '8px', paddingTop: '8px', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
                       <span>Total Amount:</span>
                       <span>₱{order.total}</span>
                     </div>
@@ -698,14 +750,14 @@ export default function AdminPage() {
                   <div style={{ marginBottom: '16px', fontSize: '13px' }}>
                     <strong>Payment:</strong> <span className="text-secondary" style={{ fontWeight: 600 }}>{order.paymentMethod ? order.paymentMethod.toUpperCase() : 'COD'}</span>
                     {order.paymentMethod === 'gcash' && (
-                      <div style={{ marginTop: '8px', padding: '10px', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #e9ecef' }}>
+                      <div style={{ marginTop: '8px', padding: '10px', background: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                          <strong style={{ color: '#2b2b2b', fontSize: '12px' }}>📱 Customer GCash Receipt:</strong>
+                          <strong style={{ color: 'var(--text-primary)', fontSize: '12px' }}>📱 Customer GCash Receipt:</strong>
                           {order.gcashReceiptUrl && (
                             <button
                               onClick={() => setViewingReceiptUrl(order.gcashReceiptUrl)}
                               className="btn btn-xs"
-                              style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', background: '#e83e8c', color: '#fff', border: 'none', fontWeight: 600 }}
+                              style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', background: 'var(--accent)', color: '#fff', border: 'none', fontWeight: 600 }}
                             >
                               🔍 View Full Image
                             </button>
@@ -715,7 +767,7 @@ export default function AdminPage() {
                         {order.gcashReceiptUrl ? (
                           <div 
                             onClick={() => setViewingReceiptUrl(order.gcashReceiptUrl)}
-                            style={{ cursor: 'pointer', position: 'relative', width: '100%', maxHeight: '160px', overflow: 'hidden', borderRadius: '6px', border: '1px solid #ddd', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            style={{ cursor: 'pointer', position: 'relative', width: '100%', maxHeight: '160px', overflow: 'hidden', borderRadius: '6px', border: '1px solid var(--border)', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           >
                             <img
                               src={order.gcashReceiptUrl}
@@ -727,7 +779,7 @@ export default function AdminPage() {
                             </div>
                           </div>
                         ) : (
-                          <div style={{ fontSize: '12px', color: '#721c24', background: '#f8d7da', padding: '6px 10px', borderRadius: '4px' }}>
+                          <div style={{ fontSize: '12px', color: 'var(--error)', background: 'var(--error-bg)', padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
                             ⚠️ No receipt attached yet
                           </div>
                         )}
@@ -761,15 +813,15 @@ export default function AdminPage() {
                             onClick={() => handleStatusChange(order.id, 'preparing')}
                             disabled={updatingStatusId === order.id}
                             className="btn btn-sm"
-                            style={{ flex: 2, background: '#28a745', color: '#fff', border: 'none', fontWeight: 600, padding: '8px 10px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                            style={{ flex: 2, background: '#10b981', color: '#fff', border: 'none', fontWeight: 600, padding: '8px 10px', fontSize: '13px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                           >
-                            ✅ Approve Payment & Prepare
+                            ✅ Approve Payment &amp; Prepare
                           </button>
                           <button
                             onClick={() => handleStatusChange(order.id, 'cancelled')}
                             disabled={updatingStatusId === order.id}
                             className="btn btn-sm"
-                            style={{ flex: 1, background: '#fff0f0', color: '#c0392b', border: '1px solid #f8d7da', fontWeight: 600, padding: '8px 10px', fontSize: '13px' }}
+                            style={{ flex: 1, background: 'var(--error-bg)', color: 'var(--error)', border: '1px solid rgba(239, 68, 68, 0.3)', fontWeight: 600, padding: '8px 10px', fontSize: '13px', borderRadius: '8px' }}
                           >
                             ❌ Reject / Cancel
                           </button>
@@ -782,7 +834,7 @@ export default function AdminPage() {
                             onClick={() => handleStatusChange(order.id, 'out_for_delivery')}
                             disabled={updatingStatusId === order.id}
                             className="btn btn-sm btn-primary"
-                            style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 600, padding: '8px 10px', fontSize: '13px' }}
+                            style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 600, padding: '8px 10px', fontSize: '13px', borderRadius: '8px' }}
                           >
                             🛵 Out for Delivery
                           </button>
@@ -790,7 +842,7 @@ export default function AdminPage() {
                             onClick={() => handleStatusChange(order.id, 'cancelled')}
                             disabled={updatingStatusId === order.id}
                             className="btn btn-sm"
-                            style={{ flex: 1, background: '#fff0f0', color: '#c0392b', border: '1px solid #f8d7da', fontWeight: 600, padding: '8px 10px', fontSize: '13px' }}
+                            style={{ flex: 1, background: 'var(--error-bg)', color: 'var(--error)', border: '1px solid rgba(239, 68, 68, 0.3)', fontWeight: 600, padding: '8px 10px', fontSize: '13px', borderRadius: '8px' }}
                           >
                             ❌ Cancel
                           </button>
@@ -803,7 +855,7 @@ export default function AdminPage() {
                             onClick={() => handleStatusChange(order.id, 'delivered')}
                             disabled={updatingStatusId === order.id}
                             className="btn btn-sm"
-                            style={{ flex: 2, background: '#27ae60', color: '#fff', border: 'none', fontWeight: 600, padding: '8px 10px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                            style={{ flex: 2, background: '#10b981', color: '#fff', border: 'none', fontWeight: 600, padding: '8px 10px', fontSize: '13px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                           >
                             🍰 Mark as Delivered
                           </button>
@@ -811,7 +863,7 @@ export default function AdminPage() {
                             onClick={() => handleStatusChange(order.id, 'cancelled')}
                             disabled={updatingStatusId === order.id}
                             className="btn btn-sm"
-                            style={{ flex: 1, background: '#fff0f0', color: '#c0392b', border: '1px solid #f8d7da', fontWeight: 600, padding: '8px 10px', fontSize: '13px' }}
+                            style={{ flex: 1, background: 'var(--error-bg)', color: 'var(--error)', border: '1px solid rgba(239, 68, 68, 0.3)', fontWeight: 600, padding: '8px 10px', fontSize: '13px', borderRadius: '8px' }}
                           >
                             ❌ Cancel
                           </button>
@@ -819,16 +871,16 @@ export default function AdminPage() {
                       )}
 
                       {order.status === 'delivered' && (
-                        <div style={{ flex: 1, padding: '8px 12px', background: '#e8f7ef', color: '#27ae60', borderRadius: '8px', fontWeight: 600, fontSize: '13px', textAlign: 'center' }}>
-                          ✅ Order Complete & Delivered
+                        <div style={{ flex: 1, padding: '8px 12px', background: 'var(--success-bg)', color: 'var(--success)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', textAlign: 'center', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                          ✅ Order Complete &amp; Delivered
                         </div>
                       )}
 
                       {order.status === 'cancelled' && (
-                        <div style={{ flex: 1, padding: '8px 12px', background: '#fdecec', color: '#c0392b', borderRadius: '8px', fontWeight: 600, fontSize: '13px', textAlign: 'center' }}>
+                        <div style={{ flex: 1, padding: '8px 12px', background: 'var(--error-bg)', color: 'var(--error)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', textAlign: 'center', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
                           <div>❌ Order Cancelled {order.cancelledBy === 'customer' ? '(by Customer)' : '(by Admin)'}</div>
                           {order.cancelReason && (
-                            <div style={{ fontSize: '11px', fontWeight: 500, color: '#900c3f', marginTop: '3px' }}>
+                            <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--error)', marginTop: '3px' }}>
                               Reason: {order.cancelReason}
                             </div>
                           )}
@@ -898,9 +950,9 @@ export default function AdminPage() {
                         className="btn btn-sm"
                         style={{
                           width: '100%',
-                          background: '#fff5f5',
-                          color: '#c53030',
-                          border: '1px solid #feb2b2',
+                          background: 'var(--error-bg)',
+                          color: 'var(--error)',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -926,7 +978,7 @@ export default function AdminPage() {
       {activeTab === 'products' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Broadcast Push Notifications Card */}
-          <div className="card" style={{ background: 'linear-gradient(135deg, #fff5f7 0%, #fff 100%)', border: '1px solid #f8d7da' }}>
+          <div className="card" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
               <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent)', margin: 0 }}>
                 📢 Broadcast &amp; Store Status Controls
@@ -936,9 +988,9 @@ export default function AdminPage() {
                 fontWeight: 700, 
                 padding: '4px 10px', 
                 borderRadius: '16px', 
-                background: storeIsOpen ? '#dcfce7' : '#fee2e2', 
-                color: storeIsOpen ? '#15803d' : '#b91c1c',
-                border: `1px solid ${storeIsOpen ? '#86efac' : '#fca5a5'}`
+                background: storeIsOpen ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)', 
+                color: storeIsOpen ? '#10b981' : '#ef4444',
+                border: storeIsOpen ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)'
               }}>
                 Live Store Status: {storeIsOpen ? '🟢 OPEN' : '🔴 CLOSED'}
               </div>
@@ -952,7 +1004,7 @@ export default function AdminPage() {
                 onClick={() => handleSendBroadcast('restock')}
                 disabled={broadcasting !== null}
                 className="btn btn-sm"
-                style={{ background: '#e83e8c', color: '#fff', border: 'none', borderRadius: '20px', padding: '10px 14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '20px', padding: '10px 14px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
               >
                 🍰 {broadcasting === 'restock' ? 'Broadcasting...' : 'Broadcast Restock'}
               </button>
@@ -962,7 +1014,7 @@ export default function AdminPage() {
                 disabled={broadcasting !== null}
                 className="btn btn-sm"
                 style={{ 
-                  background: '#28a745', 
+                  background: '#10b981', 
                   color: '#fff', 
                   border: 'none', 
                   borderRadius: '20px', 
@@ -972,7 +1024,7 @@ export default function AdminPage() {
                   alignItems: 'center', 
                   justifyContent: 'center', 
                   gap: '6px',
-                  boxShadow: storeIsOpen ? '0 0 0 2px #fff, 0 0 0 4px #28a745' : 'none'
+                  boxShadow: storeIsOpen ? '0 0 0 2px var(--bg-secondary), 0 0 0 4px #10b981' : 'none'
                 }}
               >
                 🟢 {broadcasting === 'open' ? 'Opening Store...' : 'Broadcast Store Open'}
@@ -983,7 +1035,7 @@ export default function AdminPage() {
                 disabled={broadcasting !== null}
                 className="btn btn-sm"
                 style={{ 
-                  background: '#dc3545', 
+                  background: '#ef4444', 
                   color: '#fff', 
                   border: 'none', 
                   borderRadius: '20px', 
@@ -993,7 +1045,7 @@ export default function AdminPage() {
                   alignItems: 'center', 
                   justifyContent: 'center', 
                   gap: '6px',
-                  boxShadow: !storeIsOpen ? '0 0 0 2px #fff, 0 0 0 4px #dc3545' : 'none'
+                  boxShadow: !storeIsOpen ? '0 0 0 2px var(--bg-secondary), 0 0 0 4px #ef4444' : 'none'
                 }}
               >
                 🔴 {broadcasting === 'closed' ? 'Closing Store...' : 'Broadcast Store Closed'}
@@ -1004,10 +1056,10 @@ export default function AdminPage() {
           {/* Menu Inventory Card with Category Filter Tabs */}
           <div className="card">
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '16px' }}>
-              <h3 className="section-title" style={{ margin: 0 }}>Menu Inventory & Stock</h3>
+              <h3 className="section-title" style={{ margin: 0 }}>Menu Inventory &amp; Stock</h3>
               
               {/* Category Filter Tabs */}
-              <div style={{ display: 'flex', gap: '6px', background: '#f5f5f5', padding: '4px', borderRadius: '20px' }}>
+              <div style={{ display: 'flex', gap: '6px', background: 'var(--bg-tertiary)', padding: '4px', borderRadius: '20px', border: '1px solid var(--border)' }}>
                 <button
                   onClick={() => setInventoryCategory('all')}
                   className={`btn-xs ${inventoryCategory === 'all' ? 'active' : ''}`}
@@ -1054,7 +1106,7 @@ export default function AdminPage() {
                     color: inventoryCategory === 'milkshake' ? '#fff' : 'var(--text-secondary)'
                   }}
                 >
-                  🥤 Shakes & Drinks ({products.filter(p => p.category === 'milkshake').length})
+                  🥤 Shakes &amp; Drinks ({products.filter(p => p.category === 'milkshake').length})
                 </button>
               </div>
             </div>
@@ -1066,12 +1118,12 @@ export default function AdminPage() {
                 {products
                   .filter(p => inventoryCategory === 'all' || p.category === inventoryCategory)
                   .map(p => (
-                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: '#fafafa', borderRadius: '12px', border: '1px solid #eee' }}>
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--bg-tertiary)', borderRadius: '12px', border: '1px solid var(--border)' }}>
                       <div>
                         <div style={{ fontWeight: 'bold', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span>{p.name}</span>
                           {p.comingSoon && (
-                            <span style={{ fontSize: '10px', background: 'rgba(196, 98, 45, 0.12)', color: 'var(--accent)', padding: '1px 6px', borderRadius: '8px', fontWeight: 700 }}>
+                            <span style={{ fontSize: '10px', background: 'rgba(244, 140, 160, 0.18)', color: 'var(--accent)', padding: '1px 6px', borderRadius: '8px', fontWeight: 700 }}>
                               COMING SOON
                             </span>
                           )}
@@ -1088,12 +1140,12 @@ export default function AdminPage() {
                       
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                         {/* Stock Counter Control */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#fff', border: '1px solid var(--border)', borderRadius: '20px', padding: '2px 6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '20px', padding: '2px 6px' }}>
                           <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginRight: '2px' }}>Qty:</span>
                           <button
                             onClick={() => handleUpdateStock(p.id, (p.stock || 0) - 1)}
                             className="qty-btn"
-                            style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#f5f5f5', border: '1px solid #ddd', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
+                            style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
                           >
                             -
                           </button>
@@ -1101,12 +1153,12 @@ export default function AdminPage() {
                             type="number"
                             value={p.stock !== undefined ? p.stock : 0}
                             onChange={(e) => handleUpdateStock(p.id, e.target.value)}
-                            style={{ width: '32px', border: 'none', background: 'transparent', textAlign: 'center', fontWeight: 'bold', fontSize: '13px' }}
+                            style={{ width: '32px', border: 'none', background: 'transparent', textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: 'var(--text-primary)' }}
                           />
                           <button
                             onClick={() => handleUpdateStock(p.id, (p.stock || 0) + 1)}
                             className="qty-btn"
-                            style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#f5f5f5', border: '1px solid #ddd', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
+                            style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
                           >
                             +
                           </button>
@@ -1305,10 +1357,10 @@ export default function AdminPage() {
                   };
 
                   const statusColors = {
-                    new: { bg: '#fef3c7', text: '#d97706', label: 'New Idea' },
-                    considering: { bg: '#dcfce7', text: '#15803d', label: 'Under Consideration' },
-                    planned: { bg: '#e0e7ff', text: '#4338ca', label: 'Planned for Menu' },
-                    archived: { bg: '#f3f4f6', text: '#6b7280', label: 'Archived' }
+                    new: { bg: 'rgba(245, 158, 11, 0.15)', text: '#f59e0b', label: 'New Idea' },
+                    considering: { bg: 'rgba(16, 185, 129, 0.15)', text: '#10b981', label: 'Under Consideration' },
+                    planned: { bg: 'rgba(99, 102, 241, 0.15)', text: '#818cf8', label: 'Planned for Menu' },
+                    archived: { bg: 'rgba(156, 163, 175, 0.15)', text: 'var(--text-secondary)', label: 'Archived' }
                   };
 
                   const currentStatus = statusColors[item.status] || statusColors.new;
@@ -1320,7 +1372,7 @@ export default function AdminPage() {
                         padding: '16px', 
                         borderRadius: '12px', 
                         border: '1px solid var(--border)', 
-                        background: '#ffffff',
+                        background: 'var(--bg-secondary)',
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '10px'
@@ -1335,7 +1387,7 @@ export default function AdminPage() {
                             <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '12px', background: currentStatus.bg, color: currentStatus.text }}>
                               {currentStatus.label}
                             </span>
-                            <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '12px', background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '12px', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
                               {categoryLabels[item.category] || item.category}
                             </span>
                           </div>
@@ -1352,8 +1404,8 @@ export default function AdminPage() {
                             onClick={() => handleUpdateSuggestionStatus(item.id, item.status === 'considering' ? 'new' : 'considering')}
                             className="btn btn-xs"
                             style={{ 
-                              background: item.status === 'considering' ? '#dcfce7' : 'var(--bg-secondary)', 
-                              color: item.status === 'considering' ? '#15803d' : 'var(--text-primary)',
+                              background: item.status === 'considering' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-tertiary)', 
+                              color: item.status === 'considering' ? '#10b981' : 'var(--text-primary)',
                               border: '1px solid var(--border)',
                               borderRadius: '14px',
                               padding: '4px 10px',
@@ -1369,7 +1421,7 @@ export default function AdminPage() {
                             onClick={() => handleUpdateSuggestionStatus(item.id, item.status === 'archived' ? 'new' : 'archived')}
                             className="btn btn-xs"
                             style={{ 
-                              background: 'var(--bg-secondary)', 
+                              background: 'var(--bg-tertiary)', 
                               color: 'var(--text-secondary)',
                               border: '1px solid var(--border)',
                               borderRadius: '14px',
@@ -1386,7 +1438,7 @@ export default function AdminPage() {
                             style={{ 
                               background: 'transparent', 
                               border: 'none', 
-                              color: '#9ca3af', 
+                              color: 'var(--text-secondary)', 
                               cursor: 'pointer',
                               padding: '4px',
                               display: 'flex',
@@ -1452,7 +1504,8 @@ export default function AdminPage() {
               position: 'relative',
               maxWidth: '90vw',
               maxHeight: '90vh',
-              background: '#fff',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border)',
               borderRadius: '12px',
               overflow: 'hidden',
               boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
@@ -1462,11 +1515,11 @@ export default function AdminPage() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '8px', borderBottom: '1px solid #eee' }}>
-              <h4 style={{ margin: 0, fontSize: '15px', color: '#333', fontWeight: 'bold' }}>📱 Customer GCash Payment Receipt</h4>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', paddingBottom: '8px', borderBottom: '1px solid var(--border)' }}>
+              <h4 style={{ margin: 0, fontSize: '15px', color: 'var(--text-primary)', fontWeight: 'bold' }}>📱 Customer GCash Payment Receipt</h4>
               <button
                 onClick={() => setViewingReceiptUrl(null)}
-                style={{ background: '#f0f0f0', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 ✕
               </button>
@@ -1504,22 +1557,22 @@ export default function AdminPage() {
         >
           <div 
             style={{
-              background: 'var(--card-bg, #ffffff)',
+              background: 'var(--bg-secondary)',
               borderRadius: '16px',
               maxWidth: '420px',
               width: '100%',
               padding: '1.5rem',
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
-              border: '1px solid var(--divider)'
+              border: '1px solid var(--border)'
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#fff0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c0392b', flexShrink: 0 }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--error-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--error)', flexShrink: 0 }}>
                 <Trash2 size={20} />
               </div>
               <div>
-                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>Remove Order?</h3>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>Remove Order?</h3>
                 <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)' }}>
                   Order #{orderToDelete.id.slice(-6).toUpperCase()} ({orderToDelete.status.toUpperCase()})
                 </p>
@@ -1547,7 +1600,7 @@ export default function AdminPage() {
                 className="btn"
                 style={{
                   flex: 1,
-                  background: '#c0392b',
+                  background: '#ef4444',
                   color: '#fff',
                   border: 'none',
                   fontWeight: 600,

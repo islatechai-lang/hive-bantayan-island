@@ -1440,6 +1440,68 @@ ul, ol {
   border-color: var(--border);
 }
 
+.tab-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.category-tab.active .tab-count-badge {
+  background: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+}
+
+.tab-alert-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  font-size: 10px;
+  font-weight: 700;
+  background: #f59e0b;
+  color: #ffffff;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+}
+
+.filter-pill-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.filter-pill.active .filter-pill-count {
+  background: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+}
+
+.filter-pill-alert {
+  border-color: #f59e0b !important;
+  color: #d97706 !important;
+}
+
+[data-theme="dark"] .filter-pill-alert {
+  border-color: rgba(245, 158, 11, 0.5) !important;
+  color: #fbbf24 !important;
+  background: rgba(245, 158, 11, 0.12) !important;
+}
+
 /* ============================================
    Toast Notifications (Clean, Light & Modern)
    ============================================ */
@@ -2121,18 +2183,18 @@ ul, ol {
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: linear-gradient(135deg, #e8f4fd 0%, #d1ecf9 100%);
-  border: 1px solid #b8daef;
+  background: var(--info-bg, rgba(52, 152, 219, 0.1));
+  border: 1px solid var(--border-light);
   border-radius: 10px;
   font-size: 13px;
-  color: #1a6aa0;
+  color: var(--info, #3498db);
   margin-bottom: 12px;
 }
 
 .btn-unassign {
   background: none;
   border: none;
-  color: #1a6aa0;
+  color: var(--info, #3498db);
   cursor: pointer;
   font-size: 14px;
   padding: 2px 6px;
@@ -2140,7 +2202,7 @@ ul, ol {
   transition: background 0.2s;
 }
 .btn-unassign:hover {
-  background: rgba(26, 106, 160, 0.1);
+  background: rgba(52, 152, 219, 0.15);
 }
 
 /* Rider assign dropdown */
