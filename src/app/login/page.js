@@ -96,7 +96,10 @@ export default function LoginPage() {
         showToast(result.message || 'Failed to send OTP. Please try again.', 'error');
       }
     } catch (err) {
-      showToast(err.message || 'Failed to send OTP. Please try again.', 'error');
+      const msg = err.message?.includes('already been rendered')
+        ? 'Verification reset. Please pull down to refresh the app and try again.'
+        : (err.message || 'Failed to send OTP. Please try again.');
+      showToast(msg, 'error');
     } finally {
       setSendingOTP(false);
     }

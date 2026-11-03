@@ -244,7 +244,7 @@ export function AuthProvider({ children }) {
 
   const recaptchaVerifierRef = useRef(null);
 
-  // Clean up any existing RecaptchaVerifier instance and DOM elements
+  // Clean up any existing RecaptchaVerifier instance and replace DOM container cleanly
   const cleanupRecaptcha = useCallback(() => {
     if (recaptchaVerifierRef.current) {
       try {
@@ -262,17 +262,25 @@ export function AuthProvider({ children }) {
       }
       window.recaptchaVerifier = null;
     }
+    // Cleanly replace the DOM element node to strip Google grecaptcha's internal widget bindings
     if (typeof document !== 'undefined') {
       const container = document.getElementById('recaptcha-container');
-      if (container) {
-        container.innerHTML = '';
+      if (container && container.parentNode) {
+        const freshNode = document.createElement('div');
+        freshNode.id = 'recaptcha-container';
+        container.parentNode.replaceChild(freshNode, container);
       }
     }
   }, []);
 
-  // Create a fresh RecaptchaVerifier each time we need one
-  const setupRecaptcha = useCallback((containerId) => {
-    // Clear any existing recaptcha widgets in the container and instance
+  // Create or reuse an invisible RecaptchaVerifier safely
+  const setupRecaptcha = useCallback((containerId = 'recaptcha-container') => {
+    // If a healthy verifier already exists on window, reuse it
+    if (typeof window !== 'undefined' && window.recaptchaVerifier) {
+      return window.recaptchaVerifier;
+    }
+
+    // Clean up and ensure a fresh DOM element
     cleanupRecaptcha();
 
     const verifier = new RecaptchaVerifier(auth, containerId, {
@@ -300,8 +308,21 @@ export function AuthProvider({ children }) {
 
   const sendOTP = async (phoneNumber) => {
     try {
-      const verifier = setupRecaptcha('recaptcha-container');
-      const confirmation = await signInWithPhoneNumber(auth, phoneNumber, verifier);
+      let verifier = setupRecaptcha('recaptcha-container');
+      let confirmation;
+      try {
+        confirmation = await signInWithPhoneNumber(auth, phoneNumber, verifier);
+      } catch (firstErr) {
+        // If it failed because of a reCAPTCHA already rendered glitch, auto-reset the container and retry once
+        if (firstErr.message && firstErr.message.includes('already been rendered')) {
+          console.warn('reCAPTCHA was already rendered, auto-resetting container and retrying seamlessly...');
+          cleanupRecaptcha();
+          verifier = setupRecaptcha('recaptcha-container');
+          confirmation = await signInWithPhoneNumber(auth, phoneNumber, verifier);
+        } else {
+          throw firstErr;
+        }
+      }
       setConfirmationResult(confirmation);
       return { success: true };
     } catch (error) {
@@ -314,15 +335,17 @@ export function AuthProvider({ children }) {
       if (error.code === 'auth/invalid-phone-number') {
         message = 'Invalid phone number format. Please check and try again.';
       } else if (error.code === 'auth/too-many-requests') {
-        message = 'Too many attempts. Please try again later.';
+        message = 'Too many attempts. Please wait a minute before trying again.';
       } else if (error.code === 'auth/captcha-check-failed') {
-        message = 'reCAPTCHA verification failed. Please try again.';
+        message = 'Verification check failed. Please pull down to refresh the app and try again.';
       } else if (error.code === 'auth/invalid-app-credential') {
-        message = 'App verification failed. Please check authorized domains or disable ad blockers.';
+        message = 'App verification failed. Please check internet or disable ad blockers.';
       } else if (error.code === 'auth/quota-exceeded') {
-        message = 'SMS quota exceeded. Please try again later.';
+        message = 'SMS quota reached for today. Please try again later or contact support.';
       } else if (error.code === 'auth/network-request-failed') {
         message = 'Network error. Please check your internet connection.';
+      } else if (error.message && error.message.includes('already been rendered')) {
+        message = 'Verification reset. Please pull down to refresh the app and try again.';
       } else if (error.message) {
         message = error.message;
       }
