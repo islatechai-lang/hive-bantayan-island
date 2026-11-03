@@ -94,6 +94,56 @@
 }
 
 /* ============================================
+   Dark Mode (Midnight Velvet) — Luxury & Aesthetic
+   ============================================ */
+[data-theme="dark"] {
+  /* Colors */
+  --bg-primary: #121013;
+  --bg-secondary: #1C171C;
+  --bg-tertiary: #272027;
+  --bg-glass: rgba(28, 23, 28, 0.85);
+  --bg-glass-strong: rgba(28, 23, 28, 0.95);
+  --bg-overlay: rgba(0, 0, 0, 0.75);
+
+  --card-bg-accent: #2B1E26;
+
+  --accent: #F48CA0;
+  --accent-hover: #FA9CB0;
+  --accent-light: rgba(244, 140, 160, 0.16);
+  --accent-lighter: rgba(244, 140, 160, 0.08);
+  --accent-gradient: linear-gradient(135deg, #E8758A 0%, #D45B72 100%);
+  --accent-gradient-soft: linear-gradient(135deg, #2D1A23 0%, #3B202D 100%);
+
+  --text-primary: #F8F3F5;
+  --text-secondary: #B2A7AF;
+  --text-tertiary: #756D74;
+  --text-on-accent: #FFFFFF;
+
+  --success: #52C785;
+  --success-bg: rgba(82, 199, 133, 0.15);
+  --warning: #F5AC33;
+  --warning-bg: rgba(245, 172, 51, 0.15);
+  --error: #FA6B6B;
+  --error-bg: rgba(250, 107, 107, 0.15);
+  --info: #79AEF5;
+  --info-bg: rgba(121, 174, 245, 0.15);
+  --purple: #B295F5;
+  --purple-bg: rgba(178, 149, 245, 0.15);
+
+  --border: #2E252D;
+  --border-light: #241D23;
+  --divider: #261F25;
+
+  /* Shadows adjusted for dark elevation */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.65);
+  --shadow-xl: 0 12px 40px rgba(0, 0, 0, 0.75);
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.45);
+  --shadow-float: 0 8px 32px rgba(0, 0, 0, 0.7);
+}
+
+/* ============================================
    Reset & Base
    ============================================ */
 *,

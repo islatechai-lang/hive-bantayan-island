@@ -146,7 +146,7 @@ export default function OrdersPage() {
         <button 
           onClick={() => router.push('/profile')} 
           className="btn btn-secondary btn-sm"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.5rem 0.8rem', background: '#f5f5f5', border: 'none', borderRadius: '20px' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.5rem 0.8rem', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '20px' }}
         >
           <ChevronLeft size={16} /> Profile
         </button>

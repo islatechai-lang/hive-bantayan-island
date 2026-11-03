@@ -5,12 +5,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
-import { ShoppingBag, User } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
+import { ShoppingBag, User, Sun, Moon } from 'lucide-react';
 
 export default function Header() {
   const pathname = usePathname();
   const { getCartCount } = useCart();
   const { user } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
   const cartCount = getCartCount();
 
   if (pathname?.startsWith('/admin') || pathname === '/login' || pathname === '/terms' || pathname === '/privacy' || pathname === '/delete-account') {
@@ -25,6 +27,27 @@ export default function Header() {
           <span className="logo-text">Bantayan Hive</span>
         </Link>
         <div className="header-actions">
+          {/* Aesthetic Theme Switcher */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="header-btn"
+            aria-label={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'transform 0.2s ease',
+            }}
+          >
+            {isDark ? (
+              <Sun size={20} strokeWidth={2} style={{ color: '#F5AC33' }} />
+            ) : (
+              <Moon size={20} strokeWidth={2} style={{ color: 'var(--text-secondary)' }} />
+            )}
+          </button>
+
           {user && (
             <>
               <Link href="/cart" className={`header-btn ${pathname === '/cart' ? 'active' : ''}`} aria-label="View Cart">

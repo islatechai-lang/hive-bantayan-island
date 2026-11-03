@@ -167,28 +167,28 @@ export default function OrderSuccessPage() {
         <div 
           className="card" 
           style={{ 
-            background: isCancelled ? '#fdecec' : (order.status === 'pending' ? '#fdf8e2' : '#f0fbf5'), 
-            border: isCancelled ? '1px solid #f8c0c0' : (order.status === 'pending' ? '1px solid #fbeeb5' : '1px solid #c3e6cb'), 
+            background: isCancelled ? 'var(--error-bg)' : (order.status === 'pending' ? 'var(--warning-bg)' : 'var(--success-bg)'), 
+            border: `1px solid ${isCancelled ? 'var(--error)' : (order.status === 'pending' ? 'var(--warning)' : 'var(--success)')}`, 
             marginBottom: '1.5rem',
             padding: '1rem' 
           }}
         >
           {isCancelled ? (
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-              <XCircle size={20} style={{ color: '#c0392b', flexShrink: 0, marginTop: '2px' }} />
+              <XCircle size={20} style={{ color: 'var(--error)', flexShrink: 0, marginTop: '2px' }} />
               <div>
-                <strong style={{ color: '#c0392b', fontSize: '14px', display: 'block' }}>Payment Cancelled / Order Voided</strong>
-                <span style={{ color: '#900c3f', fontSize: '12px', lineHeight: 1.4, display: 'block', marginTop: '2px' }}>
+                <strong style={{ color: 'var(--error)', fontSize: '14px', display: 'block' }}>Payment Cancelled / Order Voided</strong>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '12px', lineHeight: 1.4, display: 'block', marginTop: '2px' }}>
                   This order was cancelled. If you already sent GCash payment, please reach out to our store support.
                 </span>
               </div>
             </div>
           ) : order.status === 'pending' ? (
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-              <HelpCircle size={20} style={{ color: '#856404', flexShrink: 0, marginTop: '2px' }} />
+              <HelpCircle size={20} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: '2px' }} />
               <div>
-                <strong style={{ color: '#856404', fontSize: '14px', display: 'block' }}>Payment Under Review</strong>
-                <span style={{ color: '#997305', fontSize: '12px', lineHeight: 1.4, display: 'block', marginTop: '2px' }}>
+                <strong style={{ color: 'var(--warning)', fontSize: '14px', display: 'block' }}>Payment Under Review</strong>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '12px', lineHeight: 1.4, display: 'block', marginTop: '2px' }}>
                   Receipt received! We will confirm your order shortly.
                 </span>
               </div>
@@ -197,8 +197,8 @@ export default function OrderSuccessPage() {
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
               <ShieldCheck size={20} className="text-success" style={{ flexShrink: 0, marginTop: '2px' }} />
               <div>
-                <strong style={{ color: '#155724', fontSize: '14px', display: 'block' }}>Payment Confirmed</strong>
-                <span style={{ color: '#246b38', fontSize: '12px', lineHeight: 1.4, display: 'block', marginTop: '2px' }}>
+                <strong style={{ color: 'var(--success)', fontSize: '14px', display: 'block' }}>Payment Confirmed</strong>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '12px', lineHeight: 1.4, display: 'block', marginTop: '2px' }}>
                   Your GCash payment receipt was confirmed! Your order is being processed.
                 </span>
               </div>

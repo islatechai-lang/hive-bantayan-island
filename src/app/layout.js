@@ -1,4 +1,5 @@
 import "./globals.css";
+import { ThemeProvider } from "../contexts/ThemeContext";
 import { AuthProvider } from "../contexts/AuthContext";
 import { CartProvider } from "../contexts/CartContext";
 import { ToastProvider } from "../contexts/ToastContext";
@@ -33,25 +34,42 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/logo.png" type="image/png" />
         <link rel="apple-touch-icon" href="/logo.png" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var saved = localStorage.getItem('hive_theme');
+                  var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  var theme = saved || (prefersDark ? 'dark' : 'light');
+                  document.documentElement.setAttribute('data-theme', theme);
+                  document.documentElement.style.colorScheme = theme;
+                } catch(e) {}
+              })();
+            `,
+          }}
+        />
       </head>
       <body>
-        <ToastProvider>
-          <AuthProvider>
-            <CartProvider>
-              <div className="app-container">
-                <Header />
-                {children}
-              </div>
-            </CartProvider>
-          </AuthProvider>
-        </ToastProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            <AuthProvider>
+              <CartProvider>
+                <div className="app-container">
+                  <Header />
+                  {children}
+                </div>
+              </CartProvider>
+            </AuthProvider>
+          </ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

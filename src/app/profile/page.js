@@ -3,13 +3,15 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import PolicyModal from '../../components/PolicyModal';
-import { LogOut, ChevronRight, ChevronLeft, Truck, Phone } from 'lucide-react';
+import { LogOut, ChevronRight, ChevronLeft, Truck, Phone, Sun, Moon } from 'lucide-react';
 
 export default function ProfilePage() {
   const { user, dbUser, signOut, updateUserName } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
   const { showToast } = useToast();
   const router = useRouter();
   
@@ -67,7 +69,7 @@ export default function ProfilePage() {
         <button 
           onClick={() => router.push('/')} 
           className="btn btn-secondary btn-sm"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.5rem 0.8rem', background: '#f5f5f5', border: 'none', borderRadius: '20px' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.5rem 0.8rem', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '20px' }}
         >
           <ChevronLeft size={16} /> Menu
         </button>
@@ -95,8 +97,8 @@ export default function ProfilePage() {
 
         <div className="input-group">
           <label className="input-label">Phone Number</label>
-          <div className="phone-input-group" style={{ opacity: 0.8 }}>
-            <span className="phone-prefix" style={{ background: '#f5f5f5', borderRight: '1px solid #ddd', padding: '0.8rem 1rem', display: 'flex', alignItems: 'center' }}>
+          <div className="phone-input-group" style={{ opacity: 0.85 }}>
+            <span className="phone-prefix" style={{ background: 'var(--bg-tertiary)', borderRight: '1px solid var(--border)', padding: '0.8rem 1rem', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}>
               <Phone size={16} className="text-secondary" />
             </span>
             <input
@@ -104,7 +106,7 @@ export default function ProfilePage() {
               className="input"
               value={user.phoneNumber || ''}
               disabled={true}
-              style={{ background: '#f5f5f5', borderLeft: 'none' }}
+              style={{ background: 'var(--bg-tertiary)', borderLeft: 'none' }}
             />
           </div>
         </div>
@@ -122,6 +124,71 @@ export default function ProfilePage() {
         <h3 className="section-title">My Account</h3>
         
         <div className="profile-section">
+          {/* Theme Switcher Row */}
+          <div 
+            className="profile-item" 
+            onClick={toggleTheme} 
+            style={{ cursor: 'pointer', borderBottom: '1px solid var(--divider)', paddingBottom: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+          >
+            <div className="profile-item-left" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span 
+                className="profile-item-icon" 
+                style={{ 
+                  background: isDark ? 'rgba(245, 172, 51, 0.15)' : 'rgba(232, 117, 138, 0.1)', 
+                  color: isDark ? '#F5AC33' : 'var(--accent)', 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  width: '2.5rem', 
+                  height: '2.5rem', 
+                  borderRadius: '50%' 
+                }}
+              >
+                {isDark ? <Sun size={20} /> : <Moon size={20} />}
+              </span>
+              <div>
+                <div className="profile-item-label" style={{ fontWeight: 600 }}>Appearance</div>
+                <div className="text-xs text-secondary" style={{ marginTop: '2px' }}>
+                  {isDark ? 'Dark Mode (Midnight Velvet)' : 'Light Mode (Soft Blush)'}
+                </div>
+              </div>
+            </div>
+
+            {/* Aesthetic Pill Toggle Switch */}
+            <div 
+              style={{
+                width: '48px',
+                height: '28px',
+                borderRadius: '14px',
+                background: isDark ? 'var(--accent)' : 'var(--divider)',
+                position: 'relative',
+                transition: 'background 0.25s ease',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '3px'
+              }}
+            >
+              <div 
+                style={{
+                  width: '22px',
+                  height: '22px',
+                  borderRadius: '50%',
+                  background: '#FFFFFF',
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.25)',
+                  transform: isDark ? 'translateX(20px)' : 'translateX(0)',
+                  transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '11px'
+                }}
+              >
+                {isDark ? '🌙' : '☀️'}
+              </div>
+            </div>
+          </div>
+
+          {/* Orders Link */}
           <div className="profile-item" onClick={() => router.push('/orders')} style={{ cursor: 'pointer', borderBottom: '1px solid var(--divider)', paddingBottom: '1rem', marginBottom: '1rem' }}>
             <div className="profile-item-left">
               <span className="profile-item-icon" style={{ background: 'rgba(235, 104, 126, 0.1)', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '2.5rem', height: '2.5rem', borderRadius: '50%' }}>
@@ -134,6 +201,7 @@ export default function ProfilePage() {
             </span>
           </div>
 
+          {/* Log Out */}
           <div className="profile-item" onClick={handleSignOut} style={{ cursor: 'pointer', color: 'var(--error)' }}>
             <div className="profile-item-left">
               <span className="profile-item-icon" style={{ background: 'var(--error-bg)', color: 'var(--error)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '2.5rem', height: '2.5rem', borderRadius: '50%' }}>
